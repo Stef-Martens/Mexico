@@ -8,6 +8,7 @@ interface PlayerCardProps {
   player: {
     id: string;
     name: string;
+    avatar_url?: string | null;
   };
 }
 
@@ -42,7 +43,20 @@ export function PlayerCard({ player }: PlayerCardProps) {
 
   return (
     <div className="bg-card rounded-lg border p-4 shadow-sm">
-      <h3 className="text-lg font-semibold mb-3">{player.name}</h3>
+      <div className="flex items-center gap-3 mb-3">
+        {player.avatar_url ? (
+          <img
+            src={player.avatar_url}
+            alt={player.name}
+            className="w-10 h-10 rounded-full object-cover border-2"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-lg font-bold">
+            {player.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <h3 className="text-lg font-semibold">{player.name}</h3>
+      </div>
       <Button
         onClick={handleClick}
         disabled={isLoading}

@@ -1,0 +1,71 @@
+import {
+  checkAppMembership,
+  getCurrentUser,
+  getCurrentUserPlayer,
+} from "@/lib/queries";
+import { redirect } from "next/navigation";
+import { SignOutButton } from "@/components/sign-out-button";
+import { Button } from "@/components/ui";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { ProfileForm } from "@/components/profile-form";
+
+export const dynamic = "force-dynamic";
+
+export default async function ProfilePage() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const isMember = await checkAppMembership();
+
+  if (!isMember) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="max-w-md text-center space-y-4">
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p className="text-muted-foreground">
+            You do not have access to this app. Please contact an administrator.
+          </p>
+          <SignOutButton />
+        </div>
+      </div>
+    );
+  }
+
+  const player = await getCurrentUserPlayer();
+
+  if (!player) {
+    redirect("/");
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted">
+      <div className="container max-w-2xl mx-auto p-4 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-4">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold">⚙️ Profile</h1>
+            </div>
+          </div>
+          <SignOutButton />
+        </div>
+
+        {/* Profile Form */}
+        <ProfileForm
+          initialName={player.name}
+          initialAvatarUrl={player.avatar_url ?? null}
+        />
+      </div>
+    </div>
+  );
+}

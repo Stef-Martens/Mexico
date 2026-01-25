@@ -5,6 +5,8 @@ export interface Player {
   id: string;
   name: string;
   created_at: string;
+  avatar_url?: string | null;
+  user_id?: string | null;
 }
 
 export interface MexicoEvent {
@@ -56,13 +58,61 @@ export async function getPlayers(): Promise<Player[]> {
 }
 
 /**
+ * Ensure current user exists as a player
+ * Returns the player ID
+ */
+export async function ensureCurrentUserAsPlayer(): Promise<string | null> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return null;
+  }
+
+  // Check if player already exists with this user_id
+  const { data: existingPlayer } = await supabase
+    .from("players")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (existingPlayer) {
+    return existingPlayer.id;
+  }
+
+  // Create player for this user
+  const { data: newPlayer, error } = await supabase
+    .from("players")
+    .insert({ name: user.email || "Anonymous", user_id: user.id })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Error creating player:", error);
+    return null;
+  }
+
+  return newPlayer?.id || null;
+}
+
+/**
  * Insert a Mexico event for a player
  */
 export async function logMexico(playerId: string): Promise<void> {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+
   const { error } = await supabase.from("mexico_events").insert({
     player_id: playerId,
+    logged_by: user.id,
+    logged_by_email: user.email,
   });
 
   if (error) {
@@ -133,4 +183,101 @@ export async function getCurrentUser() {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
+}
+
+/**
+ * Get current user's player profile
+ */
+export async function getCurrentUserPlayer(): Promise<Player | null> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("players")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  if (error) {
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Update current user's player profile
+ */
+export async function updatePlayerProfile(
+  name: string,
+  avatarUrl?: string | null,
+): Promise<boolean> {
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return false;
+  }
+
+  const updates: { name: string; avatar_url?: string | null } = { name };
+  if (avatarUrl !== undefined) {
+    updates.avatar_url = avatarUrl;
+  }
+
+  const { error } = await supabase
+    .from("players")
+    .update(updates)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error updating player profile:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export interface EventLogEntry {
+  id: string;
+  created_at: string;
+  player_name: string;
+  logged_by_email: string | null;
+}
+
+/**
+ * Get event log with player and user information
+ */
+export async function getEventLog(
+  limit: number = 50,
+): Promise<EventLogEntry[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("mexico_events")
+    .select(
+      `
+      id,
+      created_at,
+      players!inner(name),
+      logged_by_email
+    `,
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Error fetching event log:", error);
+    return [];
+  }
+
+  return (data || []).map((event) => ({
+    id: event.id,
+    created_at: event.created_at,
+    player_name: (event.players as any).name,
+    logged_by_email: event.logged_by_email,
+  }));
 }

@@ -3,6 +3,7 @@ import {
   getCurrentUser,
   getPlayers,
   getLeaderboard,
+  ensureCurrentUserAsPlayer,
 } from "@/lib/queries";
 import { getStartDateForRange } from "@/lib/time-ranges";
 import { redirect } from "next/navigation";
@@ -37,6 +38,9 @@ export default async function HomePage() {
     );
   }
 
+  // Ensure current user is in the players list
+  await ensureCurrentUserAsPlayer();
+
   const players = await getPlayers();
   const tonightStart = getStartDateForRange("tonight");
   const tonightLeaderboard = await getLeaderboard(tonightStart);
@@ -53,8 +57,14 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Link href="/profile">
+              <Button variant="outline">Profile</Button>
+            </Link>
             <Link href="/leaderboard">
               <Button variant="outline">Leaderboards</Button>
+            </Link>
+            <Link href="/log">
+              <Button variant="outline">Event Log</Button>
             </Link>
             <SignOutButton />
           </div>
