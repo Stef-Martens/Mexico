@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { PlayerCard } from "@/components/player-card";
 import { Leaderboard } from "@/components/leaderboard";
 import { SignOutButton } from "@/components/sign-out-button";
+import { RefreshButton } from "@/components/refresh-button";
 import { Button } from "@/components/ui";
 import Link from "next/link";
 
@@ -58,13 +59,19 @@ export default async function HomePage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/profile">
-              <Button variant="outline" size="sm">Profile</Button>
+              <Button variant="outline" size="sm">
+                Profile
+              </Button>
             </Link>
             <Link href="/leaderboard">
-              <Button variant="outline" size="sm">Leaderboards</Button>
+              <Button variant="outline" size="sm">
+                Leaderboards
+              </Button>
             </Link>
             <Link href="/log">
-              <Button variant="outline" size="sm">Log</Button>
+              <Button variant="outline" size="sm">
+                Log
+              </Button>
             </Link>
             <SignOutButton />
           </div>
@@ -72,7 +79,10 @@ export default async function HomePage() {
 
         {/* Players Grid */}
         <div>
-          <h2 className="text-xl font-semibold mb-4">Log a Mexico</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Log a Mexico</h2>
+            <RefreshButton />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {players.map((player) => (
               <PlayerCard key={player.id} player={player} />
