@@ -49,22 +49,22 @@ export default async function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       <div className="container max-w-4xl mx-auto p-4 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4">
           <div>
-            <h1 className="text-3xl font-bold">🎲 Mexico</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold">🎲 Mexico</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Signed in as {user.email}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link href="/profile">
-              <Button variant="outline">Profile</Button>
+              <Button variant="outline" size="sm">Profile</Button>
             </Link>
             <Link href="/leaderboard">
-              <Button variant="outline">Leaderboards</Button>
+              <Button variant="outline" size="sm">Leaderboards</Button>
             </Link>
             <Link href="/log">
-              <Button variant="outline">Event Log</Button>
+              <Button variant="outline" size="sm">Log</Button>
             </Link>
             <SignOutButton />
           </div>

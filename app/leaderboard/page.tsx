@@ -49,16 +49,16 @@ export default async function LeaderboardPage() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       <div className="container max-w-4xl mx-auto p-4 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Link href="/">
               <Button variant="ghost" size="sm" className="gap-2">
                 <ArrowLeft className="h-4 w-4" />
-                Back
+                <span className="hidden sm:inline">Back</span>
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold">📊 Leaderboards</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">📊 Leaderboards</h1>
             </div>
           </div>
           <SignOutButton />
