@@ -58,6 +58,11 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link href="/regels">
+              <Button variant="outline" size="sm">
+                Rules
+              </Button>
+            </Link>
             <Link href="/profile">
               <Button variant="outline" size="sm">
                 Profile
