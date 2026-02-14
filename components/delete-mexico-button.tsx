@@ -34,16 +34,23 @@ export function DeleteMexicoButton({ eventId, playerName }: DeleteButtonProps) {
         body: JSON.stringify({ eventId }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to delete Mexico");
+        console.error("Delete failed:", data);
+        throw new Error(data.error || "Failed to delete Mexico");
       }
 
+      console.log("Delete successful:", data);
       toast.success(`Mexico deleted for ${playerName}`);
-      router.refresh();
+
+      // Force a hard refresh after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       console.error("Error deleting Mexico:", error);
       toast.error("Failed to delete Mexico. Please try again.");
-    } finally {
       setIsDeleting(false);
     }
   };

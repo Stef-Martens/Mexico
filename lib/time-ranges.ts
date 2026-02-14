@@ -36,15 +36,26 @@ export function getStartDateForRange(range: TimeRange): string | null {
   const year = parseInt(get("year")!);
   const month = parseInt(get("month")!);
   const day = parseInt(get("day")!);
+  const hour = parseInt(get("hour")!);
 
   switch (range) {
     case "tonight": {
-      // Start of today in Brussels timezone
-      const startOfDay = new Date(
-        Date.UTC(year, month - 1, day, -1, 0, 0, 0), // Adjust for Brussels UTC+1/+2
-      );
-      // Better: construct date string and let Supabase handle timezone
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00+01:00`;
+      // Noon-to-noon range (better for games played around midnight)
+      // If before noon, use yesterday at noon. If after noon, use today at noon.
+      let startDay = day;
+      let startMonth = month;
+      let startYear = year;
+
+      if (hour < 12) {
+        // Before noon - go back to yesterday at noon
+        const yesterday = new Date(year, month - 1, day);
+        yesterday.setDate(yesterday.getDate() - 1);
+        startDay = yesterday.getDate();
+        startMonth = yesterday.getMonth() + 1;
+        startYear = yesterday.getFullYear();
+      }
+
+      return `${startYear}-${String(startMonth).padStart(2, "0")}-${String(startDay).padStart(2, "0")}T12:00:00+01:00`;
     }
     case "week": {
       // Start of this week (Monday)

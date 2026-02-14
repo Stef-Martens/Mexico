@@ -1,4 +1,31 @@
-# Admin Migration Instructions
+# Migration Instructions
+
+This folder contains database migrations for the Mexico app.
+
+## Latest Migration: Delete Policy (migration_add_delete_policy.sql)
+
+**IMPORTANT: You need to run this migration for the delete functionality to work!**
+
+### What it does:
+
+- Adds DELETE policy for `mexico_events` (admin only)
+- Adds UPDATE policy for `players` (members can update)
+
+### To apply:
+
+1. Go to your Supabase project dashboard
+2. Navigate to the SQL Editor
+3. Copy and paste the contents of `migration_add_delete_policy.sql`
+4. Run the query
+
+### After migration:
+
+- Admins will be able to delete Mexico events from the log page
+- The trash icon button will actually work
+
+---
+
+## Previous Migration: Admin Role
 
 This migration adds admin functionality to the Mexico app.
 
