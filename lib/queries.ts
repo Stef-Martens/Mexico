@@ -171,6 +171,51 @@ export async function logMexico(playerId: string): Promise<void> {
 }
 
 /**
+ * Delete a Mexico event (admin only)
+ */
+export async function deleteMexicoEvent(eventId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("mexico_events")
+    .delete()
+    .eq("id", eventId);
+
+  if (error) {
+    console.error("Error deleting Mexico event:", error);
+    throw new Error("Failed to delete Mexico event");
+  }
+}
+
+/**
+ * Get total mexico count for a player in a given time range
+ */
+export async function getPlayerMexicoCount(
+  playerId: string,
+  startDate: string | null = null,
+): Promise<number> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("mexico_events")
+    .select("id", { count: "exact" })
+    .eq("player_id", playerId);
+
+  if (startDate) {
+    query = query.gte("created_at", startDate);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    console.error("Error getting player mexico count:", error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+/**
  * Get leaderboard for a given time range
  */
 export async function getLeaderboard(

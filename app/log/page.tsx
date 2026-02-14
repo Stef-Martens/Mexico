@@ -1,10 +1,16 @@
-import { checkAppMembership, getCurrentUser, getEventLog } from "@/lib/queries";
+import {
+  checkAppMembership,
+  getCurrentUser,
+  getEventLog,
+  checkIsAdmin,
+} from "@/lib/queries";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { DeleteMexicoButton } from "@/components/delete-mexico-button";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +47,7 @@ export default async function LogPage() {
   }
 
   const events = await getEventLog(100);
+  const isAdmin = await checkIsAdmin();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
@@ -78,7 +85,7 @@ export default async function LogPage() {
                     key={event.id}
                     className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                   >
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 flex-1">
                       <div className="font-medium">{event.player_name}</div>
                       <div className="text-sm text-muted-foreground">
                         {event.logged_by_email ? (
@@ -88,8 +95,16 @@ export default async function LogPage() {
                         )}
                       </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatDate(event.created_at)}
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm text-muted-foreground">
+                        {formatDate(event.created_at)}
+                      </div>
+                      {isAdmin && (
+                        <DeleteMexicoButton
+                          eventId={event.id}
+                          playerName={event.player_name}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}

@@ -6,9 +6,11 @@ import {
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Button } from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ProfileForm } from "@/components/profile-form";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +65,24 @@ export default async function ProfilePage() {
           initialName={player.name}
           initialAvatarUrl={player.avatar_url ?? null}
         />
+
+        {/* Theme Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Appearance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium mb-1">Theme</h3>
+                <p className="text-sm text-muted-foreground">
+                  Switch between light and dark mode
+                </p>
+              </div>
+              <ThemeToggle />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
