@@ -39,6 +39,55 @@ export async function checkAppMembership(): Promise<boolean> {
 }
 
 /**
+ * Check if current user is an admin
+ */
+export async function checkIsAdmin(): Promise<boolean> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return false;
+  }
+
+  const { data, error } = await supabase
+    .from("app_members")
+    .select("is_admin")
+    .eq("user_id", user.id)
+    .single();
+
+  return !error && data?.is_admin === true;
+}
+
+export interface UserWithMembership {
+  user_id: string;
+  email: string;
+  is_member: boolean;
+  is_admin: boolean;
+  created_at: string;
+}
+
+/**
+ * Get all users with their membership status (admin only)
+ */
+export async function getAllUsersWithMembership(): Promise<
+  UserWithMembership[]
+> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("get_all_users_with_membership");
+
+  if (error) {
+    console.error("Error fetching users:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
  * Get all players
  */
 export async function getPlayers(): Promise<Player[]> {

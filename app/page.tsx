@@ -1,5 +1,6 @@
 import {
   checkAppMembership,
+  checkIsAdmin,
   getCurrentUser,
   getPlayers,
   getLeaderboard,
@@ -30,9 +31,7 @@ export default async function HomePage() {
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="max-w-md text-center space-y-4">
           <h1 className="text-2xl font-bold">Access Denied</h1>
-          <p className="text-muted-foreground">
-            You do not have access to this app. Please contact an administrator.
-          </p>
+          <p className="text-muted-foreground">Vraag de patron voor toegang</p>
           <SignOutButton />
         </div>
       </div>
@@ -42,6 +41,7 @@ export default async function HomePage() {
   // Ensure current user is in the players list
   await ensureCurrentUserAsPlayer();
 
+  const isAdmin = await checkIsAdmin();
   const players = await getPlayers();
   const tonightStart = getStartDateForRange("tonight");
   const tonightLeaderboard = await getLeaderboard(tonightStart);
@@ -73,6 +73,13 @@ export default async function HomePage() {
                 Log
               </Button>
             </Link>
+            {isAdmin && (
+              <Link href="/admin">
+                <Button variant="outline" size="sm">
+                  Admin
+                </Button>
+              </Link>
+            )}
             <SignOutButton />
           </div>
         </div>
