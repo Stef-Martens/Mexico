@@ -2,7 +2,32 @@
 
 This folder contains database migrations for the Mexico app.
 
-## Latest Migration: Delete Policy (migration_add_delete_policy.sql)
+## Latest Migration: Avatar Storage (migration_add_avatar_storage.sql)
+
+**IMPORTANT: Run this migration to enable profile image uploads!**
+
+### What it does:
+
+- Creates a public `avatars` Supabase Storage bucket
+- Sets up RLS policies so users can upload/replace/delete only their own avatars
+- Grants public read access so avatars are visible to everyone in the app
+
+### To apply:
+
+1. Go to your Supabase project dashboard
+2. Navigate to the SQL Editor
+3. Copy and paste the contents of `migration_add_avatar_storage.sql`
+4. Run the query
+
+### After migration:
+
+- Users can upload an image directly from the profile page (in addition to pasting a URL)
+- Uploaded avatars are stored at `avatars/{userId}/avatar.{ext}` in Supabase Storage
+- Re-uploading overwrites the previous file automatically
+
+---
+
+## Previous Migration: Delete Policy (migration_add_delete_policy.sql)
 
 **IMPORTANT: You need to run this migration for the delete functionality to work!**
 
