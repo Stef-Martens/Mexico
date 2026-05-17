@@ -133,11 +133,7 @@ export async function POST(
         getPlayerMexicoCount(player.id, null),
         getPlayerMexicoCount(player.id, yearStart),
       ]);
-      newBadges = await checkAndAwardBadges(
-        player.id,
-        allTimeCount,
-        yearCount,
-      );
+      newBadges = await checkAndAwardBadges(player.id, allTimeCount, yearCount);
     } catch (e) {
       console.error("checkAndAwardBadges failed (non-fatal):", e);
     }
