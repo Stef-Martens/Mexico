@@ -23,7 +23,7 @@ interface FundumCardProps {
   currentPlayer: Player;
   onLike: (id: string) => Promise<void>;
   onComment: (id: string, content: string) => Promise<void>;
-  onUpload: (id: string, file: File) => Promise<void>;
+  onUpload: (id: string, file: File, onProgress: (pct: number) => void) => Promise<void>;
 }
 
 function FundumCard({
@@ -38,6 +38,7 @@ function FundumCard({
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [liking, setLiking] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,13 +67,16 @@ function FundumCard({
     setSubmittingComment(false);
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    await onUpload(fundum.id, file);
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setUploadProgress(0);
+    onUpload(fundum.id, file, setUploadProgress).finally(() => {
+      setUploading(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    });
   }
 
   return (
@@ -163,8 +167,16 @@ function FundumCard({
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-primary/40 text-primary text-sm font-semibold hover:bg-primary/5 transition-colors disabled:opacity-50"
           >
             <Upload className="w-4 h-4" />
-            {uploading ? "Uploading…" : "Upload your proof 🍺"}
+            {uploading ? `Uploading… ${uploadProgress}%` : "Upload your proof 🍺"}
           </button>
+          {uploading && (
+            <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-200"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -326,15 +338,24 @@ export function AdFundumFeed({
     );
   }
 
-  async function handleUpload(id: string, file: File) {
+  async function handleUpload(id: string, file: File, onProgress: (pct: number) => void) {
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch(`/api/ad-fundums/${id}/upload`, {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-    if (!res.ok) {
+    type UploadResponse = { error?: string; mediaUrl?: string; newBadges?: { emoji: string; name: string }[] };
+    const data = await new Promise<UploadResponse>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+      xhr.addEventListener("load", () => {
+        try { resolve(JSON.parse(xhr.responseText) as UploadResponse); } catch { reject(new Error("Invalid response")); }
+      });
+      xhr.addEventListener("error", () => reject(new Error("Network error")));
+      xhr.open("POST", `/api/ad-fundums/${id}/upload`);
+      xhr.send(formData);
+    }).catch((err: unknown) => { toast.error(String(err)); return null; });
+    if (!data) return;
+    if (data.error) {
       toast.error(data.error || "Upload failed");
       return;
     }
@@ -343,16 +364,16 @@ export function AdFundumFeed({
         if (f.id !== id) return f;
         return {
           ...f,
-          status: "completed",
-          media_url: data.mediaUrl,
+          status: "completed" as const,
+          media_url: data.mediaUrl ?? null,
           media_type: file.type.startsWith("video/") ? "video" : "image",
           completed_at: new Date().toISOString(),
         };
       }),
     );
     toast.success("🍻 Adje completed! Proof uploaded.");
-    if (data.newBadges?.length > 0) {
-      data.newBadges.forEach((b: { emoji: string; name: string }) =>
+    if (data.newBadges && data.newBadges.length > 0) {
+      data.newBadges.forEach((b) =>
         toast.success(`${b.emoji} Badge unlocked: ${b.name}!`, {
           duration: 5000,
         }),

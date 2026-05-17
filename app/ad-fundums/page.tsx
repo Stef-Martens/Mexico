@@ -10,6 +10,7 @@ import { Button } from "@/components/ui";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AdFundumFeed } from "@/components/ad-fundum-feed";
+import { RefreshButton } from "@/components/refresh-button";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function AdFundumsPage() {
                 <span>Adjes</span>
               </h1>
             </div>
+            <RefreshButton />
           </div>
         </div>
       </div>
