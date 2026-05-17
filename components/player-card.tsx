@@ -125,6 +125,7 @@ export function PlayerCard({
           });
         });
       }
+      
 
       router.refresh();
     } catch (error) {
