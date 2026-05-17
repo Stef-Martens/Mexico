@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { logMexico, getPlayerMexicoCount, getPlayers } from "@/lib/queries";
+import {
+  logMexico,
+  getPlayerMexicoCount,
+  getPlayers,
+  awardCoins,
+  checkAndAwardBadges,
+  getPlayersWithPendingAdFundums,
+} from "@/lib/queries";
 import { getStartDateForRange } from "@/lib/time-ranges";
 
 export async function POST(request: Request) {
@@ -14,7 +21,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Block logging if the player has a pending ad fundum
+    const pendingPlayers = await getPlayersWithPendingAdFundums();
+    if (pendingPlayers.has(playerId)) {
+      return NextResponse.json(
+        {
+          error: "Player has a pending Ad Fundum! They must drink first. 🍺",
+          blocked: true,
+        },
+        { status: 403 },
+      );
+    }
+
     await logMexico(playerId);
+
+    // Award +1 coin to the player
+    await awardCoins(playerId, 1);
 
     // Check for milestones
     const yearStart = getStartDateForRange("year");
@@ -44,9 +66,17 @@ export async function POST(request: Request) {
       });
     }
 
+    // Check and award any newly unlocked badges
+    const newBadges = await checkAndAwardBadges(
+      playerId,
+      allTimeCount,
+      yearCount,
+    );
+
     return NextResponse.json({
       success: true,
       milestones,
+      newBadges,
       playerName,
       yearCount,
       allTimeCount,

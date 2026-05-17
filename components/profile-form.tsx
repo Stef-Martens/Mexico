@@ -50,7 +50,11 @@ export function ProfileForm({
       setAvatarUrl(data.url);
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload image. Please try again.",
+      );
       if (fileInputRef.current) fileInputRef.current.value = "";
     } finally {
       setIsUploading(false);

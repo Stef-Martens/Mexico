@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 import { redirect } from "next/navigation";
 
 export interface Player {
@@ -342,6 +343,95 @@ export interface EventLogEntry {
   logged_by_email: string | null;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Cosmetics & Shop types
+// ─────────────────────────────────────────────────────────────
+
+export interface Cosmetic {
+  id: string;
+  name: string;
+  description: string;
+  type:
+    | "border_color"
+    | "bg_gradient"
+    | "avatar_ring"
+    | "full_card"
+    | "card_glow"
+    | "avatar_badge"
+    | "card_title";
+  value: string;
+  preview: string;
+  rarity: "common" | "rare" | "epic" | "legendary";
+  created_at: string;
+}
+
+export interface PlayerCosmetic {
+  id: string;
+  player_id: string;
+  cosmetic_id: string;
+  equipped: boolean;
+  obtained_at: string;
+  cosmetic?: Cosmetic;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Badge types
+// ─────────────────────────────────────────────────────────────
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  emoji: string;
+  condition_type: string;
+  condition_value: number | null;
+  created_at: string;
+}
+
+export interface PlayerBadge {
+  id: string;
+  player_id: string;
+  badge_id: string;
+  awarded_at: string;
+  badge?: Badge;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Ad Fundum types
+// ─────────────────────────────────────────────────────────────
+
+export interface AdFundum {
+  id: string;
+  target_player_id: string;
+  assigned_by_player_id: string;
+  reason: string | null;
+  status: "pending" | "completed";
+  media_url: string | null;
+  media_type: "image" | "video" | null;
+  completed_at: string | null;
+  created_at: string;
+  target_player?: Player;
+  assigned_by_player?: Player;
+  likes?: AdFundumLike[];
+  comments?: AdFundumComment[];
+}
+
+export interface AdFundumLike {
+  id: string;
+  ad_fundum_id: string;
+  player_id: string;
+  created_at: string;
+}
+
+export interface AdFundumComment {
+  id: string;
+  ad_fundum_id: string;
+  player_id: string;
+  content: string;
+  created_at: string;
+  player?: Player;
+}
+
 /**
  * Get event log with player and user information
  */
@@ -374,4 +464,519 @@ export async function getEventLog(
     player_name: (event.players as any).name,
     logged_by_email: event.logged_by_email,
   }));
+}
+
+// ─────────────────────────────────────────────────────────────
+// Coins
+// ─────────────────────────────────────────────────────────────
+
+export async function getPlayerCoins(playerId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("players")
+    .select("coins")
+    .eq("id", playerId)
+    .single();
+  if (error) return 0;
+  return data?.coins ?? 0;
+}
+
+/** Award coins to a player (uses service role to bypass RLS) */
+export async function awardCoins(
+  playerId: string,
+  amount: number,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: current } = await admin
+    .from("players")
+    .select("coins")
+    .eq("id", playerId)
+    .single();
+  const newCoins = (current?.coins ?? 0) + amount;
+  await admin.from("players").update({ coins: newCoins }).eq("id", playerId);
+}
+
+/** Deduct coins from the current user's player. Returns false if insufficient. */
+export async function deductCoins(
+  playerId: string,
+  amount: number,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data: current } = await admin
+    .from("players")
+    .select("coins")
+    .eq("id", playerId)
+    .single();
+  const currentCoins = current?.coins ?? 0;
+  if (currentCoins < amount) return false;
+  const { error } = await admin
+    .from("players")
+    .update({ coins: currentCoins - amount })
+    .eq("id", playerId);
+  return !error;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cosmetics
+// ─────────────────────────────────────────────────────────────
+
+export async function getAllCosmetics(): Promise<Cosmetic[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("cosmetics")
+    .select("*")
+    .order("rarity");
+  if (error) return [];
+  return data || [];
+}
+
+export async function getPlayerCosmetics(
+  playerId: string,
+): Promise<PlayerCosmetic[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("player_cosmetics")
+    .select("*, cosmetic:cosmetics(*)")
+    .eq("player_id", playerId)
+    .order("obtained_at", { ascending: false });
+  if (error) return [];
+  return (data || []).map((row) => ({
+    ...row,
+    cosmetic: row.cosmetic as Cosmetic,
+  }));
+}
+
+export async function getEquippedCosmeticForPlayer(
+  playerId: string,
+): Promise<Cosmetic | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("player_cosmetics")
+    .select("cosmetic:cosmetics(*)")
+    .eq("player_id", playerId)
+    .eq("equipped", true)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data.cosmetic as unknown as Cosmetic) || null;
+}
+
+/** Returns a map of playerId → all equipped Cosmetics (one per type) */
+export async function getEquippedCosmeticsForAllPlayers(): Promise<
+  Record<string, Cosmetic[]>
+> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("player_cosmetics")
+    .select("player_id, cosmetic:cosmetics(*)")
+    .eq("equipped", true);
+  if (error || !data) return {};
+  const result: Record<string, Cosmetic[]> = {};
+  for (const row of data) {
+    if (row.player_id && row.cosmetic) {
+      if (!result[row.player_id]) result[row.player_id] = [];
+      result[row.player_id].push(row.cosmetic as unknown as Cosmetic);
+    }
+  }
+  return result;
+}
+
+/** Grant a cosmetic to a player. Ignores if they already have it. */
+export async function grantCosmeticToPlayer(
+  playerId: string,
+  cosmeticId: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from("player_cosmetics")
+    .upsert(
+      { player_id: playerId, cosmetic_id: cosmeticId },
+      { onConflict: "player_id,cosmetic_id", ignoreDuplicates: true },
+    );
+}
+
+/** Equip a cosmetic — unequips any other cosmetic of the same type first */
+export async function equipCosmetic(
+  playerId: string,
+  cosmeticId: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  // Find the type of the cosmetic being equipped
+  const { data: cosmeticData } = await admin
+    .from("cosmetics")
+    .select("type")
+    .eq("id", cosmeticId)
+    .single();
+  if (cosmeticData?.type) {
+    // Unequip existing equipped cosmetic of the same type
+    const { data: sameType } = await admin
+      .from("player_cosmetics")
+      .select("cosmetic_id, cosmetic:cosmetics(type)")
+      .eq("player_id", playerId)
+      .eq("equipped", true);
+    const toUnequip = (sameType ?? []).filter(
+      (r) =>
+        (r.cosmetic as unknown as { type: string } | null)?.type ===
+        cosmeticData.type,
+    );
+    for (const r of toUnequip) {
+      await admin
+        .from("player_cosmetics")
+        .update({ equipped: false })
+        .eq("player_id", playerId)
+        .eq("cosmetic_id", r.cosmetic_id);
+    }
+  }
+  await admin
+    .from("player_cosmetics")
+    .update({ equipped: true })
+    .eq("player_id", playerId)
+    .eq("cosmetic_id", cosmeticId);
+}
+
+/** Unequip all cosmetics for a player (or only those of a specific type) */
+export async function unequipCosmetics(
+  playerId: string,
+  type?: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  if (type) {
+    // Find cosmetic_ids of the given type the player has equipped
+    const { data } = await admin
+      .from("player_cosmetics")
+      .select("cosmetic_id, cosmetic:cosmetics(type)")
+      .eq("player_id", playerId)
+      .eq("equipped", true);
+    const toUnequip = (data ?? []).filter(
+      (r) => (r.cosmetic as unknown as { type: string } | null)?.type === type,
+    );
+    for (const r of toUnequip) {
+      await admin
+        .from("player_cosmetics")
+        .update({ equipped: false })
+        .eq("player_id", playerId)
+        .eq("cosmetic_id", r.cosmetic_id);
+    }
+  } else {
+    await admin
+      .from("player_cosmetics")
+      .update({ equipped: false })
+      .eq("player_id", playerId);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Mystery Box
+// ─────────────────────────────────────────────────────────────
+
+const BOX_COSTS = { bronze: 5, silver: 15, gold: 50 } as const;
+const BOX_RARITY_POOLS: Record<string, string[]> = {
+  bronze: ["common", "rare"],
+  silver: ["rare", "epic"],
+  gold: ["epic", "legendary"],
+};
+// Weights: first in list is more likely
+const BOX_WEIGHTS: Record<string, number[]> = {
+  bronze: [70, 30],
+  silver: [65, 35],
+  gold: [60, 40],
+};
+
+export type BoxTier = keyof typeof BOX_COSTS;
+
+export async function openMysteryBox(
+  playerId: string,
+  tier: BoxTier,
+): Promise<{ cosmetic: Cosmetic; isNew: boolean } | { error: string }> {
+  const cost = BOX_COSTS[tier];
+
+  // Deduct coins
+  const ok = await deductCoins(playerId, cost);
+  if (!ok) return { error: "Not enough coins" };
+
+  // Pick a rarity based on weights
+  const rarityPool = BOX_RARITY_POOLS[tier];
+  const weights = BOX_WEIGHTS[tier];
+  const roll = Math.random() * 100;
+  const rarity = roll < weights[0] ? rarityPool[0] : rarityPool[1];
+
+  // Fetch all cosmetics of that rarity
+  const admin = createAdminClient();
+  const { data: cosmeticsOfRarity } = await admin
+    .from("cosmetics")
+    .select("*")
+    .eq("rarity", rarity);
+
+  if (!cosmeticsOfRarity || cosmeticsOfRarity.length === 0) {
+    // Refund if no cosmetics found
+    await awardCoins(playerId, cost);
+    return { error: "No cosmetics available" };
+  }
+
+  // Check which ones the player already owns
+  const { data: owned } = await admin
+    .from("player_cosmetics")
+    .select("cosmetic_id")
+    .eq("player_id", playerId);
+  const ownedIds = new Set((owned || []).map((o) => o.cosmetic_id));
+
+  // Prefer cosmetics they don't own yet; fall back to any
+  const unowned = cosmeticsOfRarity.filter((c) => !ownedIds.has(c.id));
+  const pool = unowned.length > 0 ? unowned : cosmeticsOfRarity;
+
+  const cosmetic = pool[Math.floor(Math.random() * pool.length)] as Cosmetic;
+  const isNew = !ownedIds.has(cosmetic.id);
+
+  await grantCosmeticToPlayer(playerId, cosmetic.id);
+
+  return { cosmetic, isNew };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Badges
+// ─────────────────────────────────────────────────────────────
+
+export async function getPlayerBadges(
+  playerId: string,
+): Promise<PlayerBadge[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("player_badges")
+    .select("*, badge:badges(*)")
+    .eq("player_id", playerId)
+    .order("awarded_at", { ascending: false });
+  if (error) return [];
+  return (data || []).map((row) => ({ ...row, badge: row.badge as Badge }));
+}
+
+/** Check conditions and award any newly earned badges. Returns newly awarded badges. */
+export async function checkAndAwardBadges(
+  playerId: string,
+  allTimeCount: number,
+  yearCount: number,
+): Promise<Badge[]> {
+  const admin = createAdminClient();
+
+  // Fetch all badges and what player already has
+  const [{ data: allBadges }, { data: existingBadges }] = await Promise.all([
+    admin.from("badges").select("*"),
+    admin.from("player_badges").select("badge_id").eq("player_id", playerId),
+  ]);
+
+  if (!allBadges) return [];
+  const existingIds = new Set((existingBadges || []).map((b) => b.badge_id));
+
+  // Count ad fundums completed and assigned
+  const [
+    { count: fundumsDone },
+    { count: fundumsAssigned },
+    { count: cosmeticsOwned },
+  ] = await Promise.all([
+    admin
+      .from("ad_fundums")
+      .select("id", { count: "exact" })
+      .eq("target_player_id", playerId)
+      .eq("status", "completed"),
+    admin
+      .from("ad_fundums")
+      .select("id", { count: "exact" })
+      .eq("assigned_by_player_id", playerId),
+    admin
+      .from("player_cosmetics")
+      .select("id", { count: "exact" })
+      .eq("player_id", playerId),
+  ]);
+
+  const newlyAwarded: Badge[] = [];
+
+  for (const badge of allBadges as Badge[]) {
+    if (existingIds.has(badge.id)) continue;
+
+    let earned = false;
+    const val = badge.condition_value ?? 0;
+
+    switch (badge.condition_type) {
+      case "mexico_alltime":
+        earned = allTimeCount >= val;
+        break;
+      case "mexico_year":
+        earned = yearCount >= val;
+        break;
+      case "ad_fundum_completed":
+        earned = (fundumsDone ?? 0) >= val;
+        break;
+      case "ad_fundum_assigned":
+        earned = (fundumsAssigned ?? 0) >= val;
+        break;
+      case "cosmetics_owned":
+        earned = (cosmeticsOwned ?? 0) >= val;
+        break;
+    }
+
+    if (earned) {
+      const { error } = await admin
+        .from("player_badges")
+        .insert({ player_id: playerId, badge_id: badge.id });
+      if (!error) newlyAwarded.push(badge);
+    }
+  }
+
+  return newlyAwarded;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Ad Fundums
+// ─────────────────────────────────────────────────────────────
+
+/** Returns the set of player IDs that have at least one pending ad fundum */
+export async function getPlayersWithPendingAdFundums(): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ad_fundums")
+    .select("target_player_id")
+    .eq("status", "pending");
+  if (error || !data) return new Set();
+  return new Set(data.map((r) => r.target_player_id));
+}
+
+export async function getAdFundums(): Promise<AdFundum[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ad_fundums")
+    .select(
+      `
+      *,
+      target_player:players!target_player_id(id, name, avatar_url),
+      assigned_by_player:players!assigned_by_player_id(id, name, avatar_url),
+      likes:ad_fundum_likes(id, player_id, created_at),
+      comments:ad_fundum_comments(id, player_id, content, created_at, player:players(id, name, avatar_url))
+    `,
+    )
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching ad fundums:", error);
+    return [];
+  }
+
+  return (data || []) as unknown as AdFundum[];
+}
+
+export async function createAdFundum(
+  targetPlayerId: string,
+  assignedByPlayerId: string,
+  reason?: string,
+): Promise<AdFundum | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("ad_fundums")
+    .insert({
+      target_player_id: targetPlayerId,
+      assigned_by_player_id: assignedByPlayerId,
+      reason: reason || null,
+    })
+    .select()
+    .single();
+  if (error) {
+    console.error("Error creating ad fundum:", error);
+    return null;
+  }
+  return data as AdFundum;
+}
+
+export async function completeAdFundum(
+  id: string,
+  mediaUrl: string,
+  mediaType: "image" | "video",
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ad_fundums")
+    .update({
+      status: "completed",
+      media_url: mediaUrl,
+      media_type: mediaType,
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  return !error;
+}
+
+export async function toggleAdFundumLike(
+  adFundumId: string,
+  playerId: string,
+): Promise<{ liked: boolean }> {
+  const admin = createAdminClient();
+
+  // Check if already liked
+  const { data: existing } = await admin
+    .from("ad_fundum_likes")
+    .select("id")
+    .eq("ad_fundum_id", adFundumId)
+    .eq("player_id", playerId)
+    .maybeSingle();
+
+  if (existing) {
+    await admin.from("ad_fundum_likes").delete().eq("id", existing.id);
+    return { liked: false };
+  } else {
+    await admin
+      .from("ad_fundum_likes")
+      .insert({ ad_fundum_id: adFundumId, player_id: playerId });
+    return { liked: true };
+  }
+}
+
+export async function addAdFundumComment(
+  adFundumId: string,
+  playerId: string,
+  content: string,
+): Promise<AdFundumComment | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("ad_fundum_comments")
+    .insert({ ad_fundum_id: adFundumId, player_id: playerId, content })
+    .select("*, player:players(id, name, avatar_url)")
+    .single();
+  if (error) return null;
+  return data as unknown as AdFundumComment;
+}
+
+export async function getPlayerInfo(playerId: string): Promise<{
+  player: Player;
+  allTimeCount: number;
+  yearCount: number;
+  badges: PlayerBadge[];
+  cosmetics: PlayerCosmetic[];
+  equippedCosmetic: Cosmetic | null;
+} | null> {
+  const supabase = await createClient();
+
+  const { data: player, error } = await supabase
+    .from("players")
+    .select("*")
+    .eq("id", playerId)
+    .single();
+
+  if (error || !player) return null;
+
+  const { getStartDateForRange } = await import("@/lib/time-ranges");
+  const yearStart = getStartDateForRange("year");
+
+  const [allTimeCount, yearCount, badges, cosmetics] = await Promise.all([
+    getPlayerMexicoCount(playerId, null),
+    getPlayerMexicoCount(playerId, yearStart),
+    getPlayerBadges(playerId),
+    getPlayerCosmetics(playerId),
+  ]);
+
+  const equippedCosmetic = cosmetics.find((c) => c.equipped)?.cosmetic ?? null;
+
+  return {
+    player,
+    allTimeCount,
+    yearCount,
+    badges,
+    cosmetics,
+    equippedCosmetic,
+  };
 }

@@ -5,6 +5,8 @@ import {
   getPlayers,
   getLeaderboard,
   ensureCurrentUserAsPlayer,
+  getEquippedCosmeticsForAllPlayers,
+  getPlayersWithPendingAdFundums,
 } from "@/lib/queries";
 import { getStartDateForRange } from "@/lib/time-ranges";
 import { redirect } from "next/navigation";
@@ -44,7 +46,12 @@ export default async function HomePage() {
   const isAdmin = await checkIsAdmin();
   const players = await getPlayers();
   const tonightStart = getStartDateForRange("tonight");
-  const tonightLeaderboard = await getLeaderboard(tonightStart);
+  const [tonightLeaderboard, equippedCosmetics, pendingFundumPlayerIds] =
+    await Promise.all([
+      getLeaderboard(tonightStart),
+      getEquippedCosmeticsForAllPlayers(),
+      getPlayersWithPendingAdFundums(),
+    ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
@@ -71,49 +78,67 @@ export default async function HomePage() {
           </div>
 
           {/* Navigation Row */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <Link href="/regels" className="flex-1">
+          <div className="flex items-center gap-1 text-xs flex-wrap">
+            <Link href="/regels" className="flex-1 min-w-[60px]">
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full h-7 px-2 text-xs"
+                className="w-full h-7 px-1.5 text-xs"
               >
                 📖 Rules
               </Button>
             </Link>
-            <Link href="/profile" className="flex-1">
+            <Link href="/profile" className="flex-1 min-w-[60px]">
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full h-7 px-2 text-xs"
+                className="w-full h-7 px-1.5 text-xs"
               >
                 👤 Profile
               </Button>
             </Link>
-            <Link href="/leaderboard" className="flex-1">
+            <Link href="/leaderboard" className="flex-1 min-w-[60px]">
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full h-7 px-2 text-xs"
+                className="w-full h-7 px-1.5 text-xs"
               >
                 🏆 Board
               </Button>
             </Link>
-            <Link href="/log" className="flex-1">
+            <Link href="/shop" className="flex-1 min-w-[60px]">
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full h-7 px-2 text-xs"
+                className="w-full h-7 px-1.5 text-xs"
+              >
+                🛒 Shop
+              </Button>
+            </Link>
+            <Link href="/ad-fundums" className="flex-1 min-w-[60px]">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full h-7 px-1.5 text-xs"
+              >
+                🍺 Fundums
+              </Button>
+            </Link>
+            <Link href="/log" className="flex-1 min-w-[60px]">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full h-7 px-1.5 text-xs"
               >
                 📋 Log
               </Button>
             </Link>
             {isAdmin && (
-              <Link href="/admin" className="flex-1">
+              <Link href="/admin" className="flex-1 min-w-[60px]">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="w-full h-7 px-2 text-xs"
+                  className="w-full h-7 px-1.5 text-xs"
                 >
                   ⚙️ Admin
                 </Button>
@@ -129,7 +154,12 @@ export default async function HomePage() {
           <h2 className="text-lg font-bold mb-3">Select Player</h2>
           <div className="grid grid-cols-2 gap-3">
             {players.map((player) => (
-              <PlayerCard key={player.id} player={player} />
+              <PlayerCard
+                key={player.id}
+                player={player}
+                equippedCosmetics={equippedCosmetics[player.id] ?? []}
+                hasPendingAdFundum={pendingFundumPlayerIds.has(player.id)}
+              />
             ))}
           </div>
         </div>
