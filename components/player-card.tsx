@@ -135,6 +135,7 @@ export function PlayerCard({
     }
   };
 
+  
   // Build card border style: cosmetic gradient or default class
   const cardBorderStyle = cardBorder
     ? {
