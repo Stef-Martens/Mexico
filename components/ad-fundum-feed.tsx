@@ -23,7 +23,11 @@ interface FundumCardProps {
   currentPlayer: Player;
   onLike: (id: string) => Promise<void>;
   onComment: (id: string, content: string) => Promise<void>;
-  onUpload: (id: string, file: File, onProgress: (pct: number) => void) => Promise<void>;
+  onUpload: (
+    id: string,
+    file: File,
+    onProgress: (pct: number) => void,
+  ) => Promise<void>;
 }
 
 function FundumCard({
@@ -167,7 +171,9 @@ function FundumCard({
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-primary/40 text-primary text-sm font-semibold hover:bg-primary/5 transition-colors disabled:opacity-50"
           >
             <Upload className="w-4 h-4" />
-            {uploading ? `Uploading… ${uploadProgress}%` : "Upload your proof 🍺"}
+            {uploading
+              ? `Uploading… ${uploadProgress}%`
+              : "Upload your proof 🍺"}
           </button>
           {uploading && (
             <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -338,42 +344,79 @@ export function AdFundumFeed({
     );
   }
 
-  async function handleUpload(id: string, file: File, onProgress: (pct: number) => void) {
-    const formData = new FormData();
-    formData.append("file", file);
-    type UploadResponse = { error?: string; mediaUrl?: string; newBadges?: { emoji: string; name: string }[] };
-    const data = await new Promise<UploadResponse>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-      });
-      xhr.addEventListener("load", () => {
-        try { resolve(JSON.parse(xhr.responseText) as UploadResponse); } catch { reject(new Error("Invalid response")); }
-      });
-      xhr.addEventListener("error", () => reject(new Error("Network error")));
-      xhr.open("POST", `/api/ad-fundums/${id}/upload`);
-      xhr.send(formData);
-    }).catch((err: unknown) => { toast.error(String(err)); return null; });
-    if (!data) return;
-    if (data.error) {
-      toast.error(data.error || "Upload failed");
+  async function handleUpload(
+    id: string,
+    file: File,
+    onProgress: (pct: number) => void,
+  ) {
+    // Step 1: get a signed upload URL (no file body → no Vercel size limit)
+    const urlRes = await fetch(
+      `/api/ad-fundums/${id}/upload-url?type=${encodeURIComponent(file.type)}&name=${encodeURIComponent(file.name)}`,
+    );
+    const urlData = (await urlRes.json()) as {
+      error?: string;
+      signedUrl?: string;
+      publicUrl?: string;
+      mediaType?: "image" | "video";
+    };
+    if (!urlRes.ok || urlData.error) {
+      toast.error(urlData.error || "Failed to prepare upload");
       return;
     }
+
+    // Step 2: upload the file directly to Supabase (bypasses Vercel body limit)
+    const uploadOk = await new Promise<boolean>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable)
+          onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+      xhr.addEventListener("load", () =>
+        resolve(xhr.status >= 200 && xhr.status < 300),
+      );
+      xhr.addEventListener("error", () => resolve(false));
+      xhr.open("PUT", urlData.signedUrl!);
+      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.send(file);
+    });
+    if (!uploadOk) {
+      toast.error("Upload failed — please try again");
+      return;
+    }
+
+    // Step 3: tell the server to mark the adje as completed
+    const completeRes = await fetch(`/api/ad-fundums/${id}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mediaUrl: urlData.publicUrl,
+        mediaType: urlData.mediaType,
+      }),
+    });
+    const completeData = (await completeRes.json()) as {
+      error?: string;
+      newBadges?: { emoji: string; name: string }[];
+    };
+    if (!completeRes.ok || completeData.error) {
+      toast.error(completeData.error || "Failed to save proof");
+      return;
+    }
+
     setFundums((prev) =>
       prev.map((f) => {
         if (f.id !== id) return f;
         return {
           ...f,
           status: "completed" as const,
-          media_url: data.mediaUrl ?? null,
-          media_type: file.type.startsWith("video/") ? "video" : "image",
+          media_url: urlData.publicUrl ?? null,
+          media_type: urlData.mediaType ?? "image",
           completed_at: new Date().toISOString(),
         };
       }),
     );
     toast.success("🍻 Adje completed! Proof uploaded.");
-    if (data.newBadges && data.newBadges.length > 0) {
-      data.newBadges.forEach((b) =>
+    if (completeData.newBadges && completeData.newBadges.length > 0) {
+      completeData.newBadges.forEach((b) =>
         toast.success(`${b.emoji} Badge unlocked: ${b.name}!`, {
           duration: 5000,
         }),
