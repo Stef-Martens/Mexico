@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { Heart, MessageCircle, Upload, Send } from "lucide-react";
+import { Heart, MessageCircle, Upload, Send, XCircle } from "lucide-react";
 import type { AdFundum, AdFundumComment, Player } from "@/lib/queries";
 
 interface AdFundumFeedProps {
   initialFundums: AdFundum[];
   currentPlayer: Player;
+  isAdmin?: boolean;
 }
 
 function timeAgo(date: string) {
@@ -28,6 +29,8 @@ interface FundumCardProps {
     file: File,
     onProgress: (pct: number) => void,
   ) => Promise<void>;
+  onDecline: (id: string, reason: string) => Promise<void>;
+  isAdmin: boolean;
 }
 
 function FundumCard({
@@ -36,6 +39,8 @@ function FundumCard({
   onLike,
   onComment,
   onUpload,
+  onDecline,
+  isAdmin,
 }: FundumCardProps) {
   const [showComments, setShowComments] = useState(false);
   const [showLikers, setShowLikers] = useState(false);
@@ -43,6 +48,9 @@ function FundumCard({
   const [submittingComment, setSubmittingComment] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [declining, setDeclining] = useState(false);
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
   const [liking, setLiking] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,6 +62,16 @@ function FundumCard({
   const commentCount = fundum.comments?.length ?? 0;
 
   const isCompleted = fundum.status === "completed";
+  const isDeclined = fundum.status === "declined";
+
+  async function handleDecline() {
+    if (declining) return;
+    setDeclining(true);
+    await onDecline(fundum.id, declineReason.trim());
+    setDeclining(false);
+    setShowDeclineModal(false);
+    setDeclineReason("");
+  }
 
   async function handleLike() {
     if (liking) return;
@@ -119,10 +137,12 @@ function FundumCard({
           className={`flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${
             isCompleted
               ? "bg-emerald-500/15 text-emerald-400"
-              : "bg-red-500/15 text-red-400"
+              : isDeclined
+                ? "bg-orange-500/15 text-orange-400"
+                : "bg-red-500/15 text-red-400"
           }`}
         >
-          {isCompleted ? "✅ Done" : "🔴 Pending"}
+          {isCompleted ? "✅ Done" : isDeclined ? "❌ Declined" : "🔴 Pending"}
         </span>
       </div>
 
@@ -135,8 +155,23 @@ function FundumCard({
         </div>
       )}
 
+      {/* Declined banner */}
+      {isDeclined && (
+        <div className="mx-4 mb-3 flex items-start gap-2 rounded-xl bg-orange-500/10 border border-orange-500/20 px-3 py-2.5 text-sm text-orange-400 font-semibold">
+          <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            Proof rejected — a new adje has been added
+            {fundum.decline_reason && (
+              <>
+                {" "}because: &ldquo;{fundum.decline_reason}&rdquo;
+              </>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Media */}
-      {isCompleted && fundum.media_url && (
+      {(isCompleted || isDeclined) && fundum.media_url && (
         <div className="w-full bg-black">
           {fundum.media_type === "video" ? (
             <video
@@ -156,7 +191,7 @@ function FundumCard({
       )}
 
       {/* Upload proof button (own pending fundum) */}
-      {isMyFundum && !isCompleted && (
+      {isMyFundum && !isCompleted && !isDeclined && (
         <div className="px-4 py-3 border-t border-border">
           <input
             ref={fileInputRef}
@@ -216,7 +251,59 @@ function FundumCard({
           <MessageCircle className="w-5 h-5" />
           {commentCount > 0 && <span>{commentCount}</span>}
         </button>
+        {isAdmin && isCompleted && (
+          <button
+            onClick={() => setShowDeclineModal(true)}
+            className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+          >
+            <XCircle className="w-4 h-4" />
+            Decline proof
+          </button>
+        )}
       </div>
+
+      {/* Decline confirmation modal */}
+      {showDeclineModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/60">
+          <div className="w-full max-w-sm rounded-2xl bg-card border border-border p-5 space-y-4 shadow-xl">
+            <div>
+              <h3 className="font-bold text-base">Decline proof?</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                A new adje will be added for{" "}
+                <span className="font-semibold text-foreground">
+                  {fundum.target_player?.name}
+                </span>.
+              </p>
+            </div>
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Reason (optional)"
+              rows={2}
+              maxLength={200}
+              className="w-full text-sm px-3 py-2 rounded-xl bg-muted border border-border focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowDeclineModal(false);
+                  setDeclineReason("");
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDecline}
+                disabled={declining}
+                className="flex-1 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-400 transition-colors disabled:opacity-50"
+              >
+                {declining ? "Declining…" : "Yes, decline"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Likers list */}
       {showLikers && likeCount > 0 && (
@@ -291,8 +378,13 @@ function FundumCard({
 export function AdFundumFeed({
   initialFundums,
   currentPlayer,
+  isAdmin = false,
 }: AdFundumFeedProps) {
   const [fundums, setFundums] = useState<AdFundum[]>(initialFundums);
+
+  useEffect(() => {
+    setFundums(initialFundums);
+  }, [initialFundums]);
 
   const pendingCount = fundums.filter((f) => f.status === "pending").length;
   const completedCount = fundums.filter((f) => f.status === "completed").length;
@@ -424,6 +516,28 @@ export function AdFundumFeed({
     }
   }
 
+  async function handleDecline(id: string, reason: string) {
+    const res = await fetch(`/api/ad-fundums/${id}/decline`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    const data = (await res.json()) as { error?: string; newAdje?: AdFundum };
+    if (!res.ok || data.error) {
+      toast.error(data.error || "Failed to decline");
+      return;
+    }
+    setFundums((prev) => [
+      data.newAdje!,
+      ...prev.map((f) =>
+        f.id === id
+          ? { ...f, status: "declined" as const, decline_reason: reason || null }
+          : f,
+      ),
+    ]);
+    toast.success("❌ Proof declined — new adje added");
+  }
+
   return (
     <div className="space-y-6">
       {/* Stats bar */}
@@ -459,6 +573,8 @@ export function AdFundumFeed({
               onLike={handleLike}
               onComment={handleComment}
               onUpload={handleUpload}
+              onDecline={handleDecline}
+              isAdmin={isAdmin}
             />
           ))}
         </div>

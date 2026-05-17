@@ -34,7 +34,9 @@ export async function GET(
 
     if (!ALLOWED_TYPES.includes(fileType)) {
       return NextResponse.json(
-        { error: "Invalid file type. Allowed: images and MP4/MOV/WebM videos." },
+        {
+          error: "Invalid file type. Allowed: images and MP4/MOV/WebM videos.",
+        },
         { status: 400 },
       );
     }

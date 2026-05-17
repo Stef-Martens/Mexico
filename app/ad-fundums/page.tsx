@@ -1,5 +1,6 @@
 import {
   checkAppMembership,
+  checkIsAdmin,
   getCurrentUser,
   getCurrentUserPlayer,
   getAdFundums,
@@ -34,7 +35,10 @@ export default async function AdFundumsPage() {
   const player = await getCurrentUserPlayer();
   if (!player) redirect("/");
 
-  const fundums = await getAdFundums();
+  const [fundums, isAdmin] = await Promise.all([
+    getAdFundums(),
+    checkIsAdmin(),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
@@ -59,7 +63,11 @@ export default async function AdFundumsPage() {
       </div>
 
       <div className="px-3 py-4 max-w-lg mx-auto">
-        <AdFundumFeed initialFundums={fundums} currentPlayer={player} />
+        <AdFundumFeed
+          initialFundums={fundums}
+          currentPlayer={player}
+          isAdmin={isAdmin}
+        />
       </div>
     </div>
   );

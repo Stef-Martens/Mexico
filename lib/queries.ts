@@ -405,11 +405,12 @@ export interface AdFundum {
   target_player_id: string;
   assigned_by_player_id: string;
   reason: string | null;
-  status: "pending" | "completed";
+  status: "pending" | "completed" | "declined";
   media_url: string | null;
   media_type: "image" | "video" | null;
   completed_at: string | null;
   created_at: string;
+  decline_reason?: string | null;
   target_player?: Player;
   assigned_by_player?: Player;
   likes?: AdFundumLike[];
@@ -882,6 +883,44 @@ export async function createAdFundum(
     return null;
   }
   return data as AdFundum;
+}
+
+export async function declineAdFundum(
+  id: string,
+  assignedByPlayerId: string,
+  reason?: string,
+): Promise<AdFundum | null> {
+  const admin = createAdminClient();
+  // Mark old adje as declined
+  const { data: old, error: fetchErr } = await admin
+    .from("ad_fundums")
+    .select("target_player_id, reason")
+    .eq("id", id)
+    .single();
+  if (fetchErr || !old) return null;
+  const { error: declineErr } = await admin
+    .from("ad_fundums")
+    .update({ status: "declined", decline_reason: reason || null })
+    .eq("id", id);
+  if (declineErr) return null;
+  // Create a new adje — use provided reason or fall back to original
+  const newReason = reason || old.reason;
+  const { data: newAdje, error: createErr } = await admin
+    .from("ad_fundums")
+    .insert({
+      target_player_id: old.target_player_id,
+      assigned_by_player_id: assignedByPlayerId,
+      reason: newReason,
+    })
+    .select(
+      `*, target_player:players!target_player_id(id, name, avatar_url),
+      assigned_by_player:players!assigned_by_player_id(id, name, avatar_url),
+      likes:ad_fundum_likes(id, player_id, created_at, player:players(name)),
+      comments:ad_fundum_comments(id, player_id, content, created_at, player:players(id, name, avatar_url))`,
+    )
+    .single();
+  if (createErr) return null;
+  return newAdje as AdFundum;
 }
 
 export async function completeAdFundum(
