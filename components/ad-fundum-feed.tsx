@@ -186,7 +186,9 @@ function FundumCard({
             onClick={() => setShowLikers((v) => !v)}
             className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
           >
-            {showLikers ? "Hide likes" : `${likeCount} like${likeCount !== 1 ? "s" : ""}`}
+            {showLikers
+              ? "Hide likes"
+              : `${likeCount} like${likeCount !== 1 ? "s" : ""}`}
           </button>
         )}
         <button

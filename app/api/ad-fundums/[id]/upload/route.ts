@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 import {
   getCurrentUserPlayer,
   completeAdFundum,
@@ -98,7 +99,8 @@ export async function POST(
     const arrayBuffer = await file.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
 
-    const { error: uploadError } = await supabase.storage
+    const adminClient = createAdminClient();
+    const { error: uploadError } = await adminClient.storage
       .from("ad-fundums")
       .upload(storagePath, buffer, { contentType: file.type, upsert: true });
 
@@ -110,7 +112,7 @@ export async function POST(
       );
     }
 
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = adminClient.storage
       .from("ad-fundums")
       .getPublicUrl(storagePath);
 
@@ -123,17 +125,22 @@ export async function POST(
       );
     }
 
-    // Check for newly unlocked badges
-    const yearStart = getStartDateForRange("year");
-    const [allTimeCount, yearCount] = await Promise.all([
-      getPlayerMexicoCount(player.id, null),
-      getPlayerMexicoCount(player.id, yearStart),
-    ]);
-    const newBadges = await checkAndAwardBadges(
-      player.id,
-      allTimeCount,
-      yearCount,
-    );
+    // Check for newly unlocked badges (non-fatal)
+    let newBadges: Awaited<ReturnType<typeof checkAndAwardBadges>> = [];
+    try {
+      const yearStart = getStartDateForRange("year");
+      const [allTimeCount, yearCount] = await Promise.all([
+        getPlayerMexicoCount(player.id, null),
+        getPlayerMexicoCount(player.id, yearStart),
+      ]);
+      newBadges = await checkAndAwardBadges(
+        player.id,
+        allTimeCount,
+        yearCount,
+      );
+    } catch (e) {
+      console.error("checkAndAwardBadges failed (non-fatal):", e);
+    }
 
     return NextResponse.json({
       success: true,
