@@ -421,6 +421,7 @@ export interface AdFundumLike {
   ad_fundum_id: string;
   player_id: string;
   created_at: string;
+  player?: { name: string };
 }
 
 export interface AdFundumComment {
@@ -847,7 +848,7 @@ export async function getAdFundums(): Promise<AdFundum[]> {
       *,
       target_player:players!target_player_id(id, name, avatar_url),
       assigned_by_player:players!assigned_by_player_id(id, name, avatar_url),
-      likes:ad_fundum_likes(id, player_id, created_at),
+      likes:ad_fundum_likes(id, player_id, created_at, player:players(name)),
       comments:ad_fundum_comments(id, player_id, content, created_at, player:players(id, name, avatar_url))
     `,
     )

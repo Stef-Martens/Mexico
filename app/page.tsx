@@ -121,7 +121,7 @@ export default async function HomePage() {
                 size="sm"
                 className="w-full h-7 px-1.5 text-xs"
               >
-                🍺 Fundums
+                🍺 Adjes
               </Button>
             </Link>
             <Link href="/log" className="flex-1 min-w-[60px]">

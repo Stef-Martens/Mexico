@@ -95,7 +95,7 @@ export function PlayerCard({
 
       if (data.blocked) {
         toast.error(
-          `🍺 ${player.name} has a pending Ad Fundum! They must drink first.`,
+          `🍺 ${player.name} has a pending Adje! They must drink first.`,
           { duration: 6000 },
         );
         return;
@@ -125,7 +125,6 @@ export function PlayerCard({
           });
         });
       }
-      
 
       router.refresh();
     } catch (error) {
@@ -180,7 +179,7 @@ export function PlayerCard({
             <div className="absolute inset-0 z-10 rounded-2xl bg-red-950/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1 pointer-events-none">
               <span className="text-3xl">🍺</span>
               <span className="text-xs font-bold text-red-300 text-center px-2">
-                Owes Ad Fundum
+                Owes Adje
               </span>
             </div>
           )}

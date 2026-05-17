@@ -123,7 +123,7 @@ export function ShopClient({
       return;
     }
     if (coins < 30) {
-      toast.error("Not enough coins! Ad Fundum costs 30 coins.");
+      toast.error("Not enough coins! An Adje costs 30 coins.");
       return;
     }
     setBuyingFundum(true);
@@ -145,7 +145,7 @@ export function ShopClient({
       setSelectedTarget("");
       setFundumReason("");
       const targetName = players.find((p) => p.id === selectedTarget)?.name;
-      toast.success(`🍺 Ad Fundum assigned to ${targetName}!`);
+      toast.success(`🍺 Adje assigned to ${targetName}!`);
     } finally {
       setBuyingFundum(false);
     }
@@ -284,14 +284,14 @@ export function ShopClient({
 
       {/* Buy Ad Fundum */}
       <section>
-        <h2 className="text-base font-bold mb-3">🍺 Send Ad Fundum</h2>
+        <h2 className="text-base font-bold mb-3">🍺 Send Adje</h2>
         <div className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-900/20 to-red-700/10 p-4 space-y-3">
           <div className="flex items-start gap-3">
             <span className="text-3xl">😈</span>
             <div>
-              <p className="font-bold">Ad Fundum for Someone</p>
+              <p className="font-bold">Adje for Someone</p>
               <p className="text-xs text-muted-foreground">
-                Force another player to do an ad fundum and upload proof. Costs{" "}
+                Force another player to do an adje and upload proof. Costs{" "}
                 <span className="font-bold text-yellow-400">🪙 30 coins</span>
               </p>
             </div>
@@ -321,7 +321,7 @@ export function ShopClient({
             disabled={buyingFundum || !selectedTarget || coins < 30}
             className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
           >
-            {buyingFundum ? "Sending…" : "🍺 Send Ad Fundum — 🪙 30"}
+            {buyingFundum ? "Sending…" : "🍺 Send Adje — 🪙 30"}
           </button>
         </div>
       </section>

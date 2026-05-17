@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     if (pendingPlayers.has(playerId)) {
       return NextResponse.json(
         {
-          error: "Player has a pending Ad Fundum! They must drink first. 🍺",
+          error: "Player has a pending Adje! They must drink first. 🍺",
           blocked: true,
         },
         { status: 403 },
@@ -35,8 +35,12 @@ export async function POST(request: Request) {
 
     await logMexico(playerId);
 
-    // Award +1 coin to the player
-    await awardCoins(playerId, 1);
+    // Award +1 coin — non-fatal if admin client fails (e.g. missing env var in production)
+    try {
+      await awardCoins(playerId, 1);
+    } catch (e) {
+      console.error("awardCoins failed (non-fatal):", e);
+    }
 
     // Check for milestones
     const yearStart = getStartDateForRange("year");
@@ -66,12 +70,13 @@ export async function POST(request: Request) {
       });
     }
 
-    // Check and award any newly unlocked badges
-    const newBadges = await checkAndAwardBadges(
-      playerId,
-      allTimeCount,
-      yearCount,
-    );
+    // Check and award any newly unlocked badges — non-fatal
+    let newBadges: { emoji: string; name: string }[] = [];
+    try {
+      newBadges = await checkAndAwardBadges(playerId, allTimeCount, yearCount);
+    } catch (e) {
+      console.error("checkAndAwardBadges failed (non-fatal):", e);
+    }
 
     return NextResponse.json({
       success: true,

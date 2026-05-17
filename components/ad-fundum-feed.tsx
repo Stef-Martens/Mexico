@@ -34,6 +34,7 @@ function FundumCard({
   onUpload,
 }: FundumCardProps) {
   const [showComments, setShowComments] = useState(false);
+  const [showLikers, setShowLikers] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -139,7 +140,7 @@ function FundumCard({
           ) : (
             <img
               src={fundum.media_url}
-              alt="Ad fundum proof"
+              alt="Adje proof"
               className="w-full max-h-96 object-contain"
             />
           )}
@@ -179,8 +180,15 @@ function FundumCard({
           }`}
         >
           <Heart className={`w-5 h-5 ${hasLiked ? "fill-red-400" : ""}`} />
-          {likeCount > 0 && <span>{likeCount}</span>}
         </button>
+        {likeCount > 0 && (
+          <button
+            onClick={() => setShowLikers((v) => !v)}
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+          >
+            {showLikers ? "Hide likes" : `${likeCount} like${likeCount !== 1 ? "s" : ""}`}
+          </button>
+        )}
         <button
           onClick={() => setShowComments((v) => !v)}
           className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -189,6 +197,17 @@ function FundumCard({
           {commentCount > 0 && <span>{commentCount}</span>}
         </button>
       </div>
+
+      {/* Likers list */}
+      {showLikers && likeCount > 0 && (
+        <div className="px-4 pb-3 border-t border-border pt-2">
+          <p className="text-xs text-muted-foreground">
+            {(fundum.likes || [])
+              .map((l) => l.player?.name ?? "Someone")
+              .join(", ")}
+          </p>
+        </div>
+      )}
 
       {/* Comments section */}
       {showComments && (
@@ -275,6 +294,7 @@ export function AdFundumFeed({
             ad_fundum_id: id,
             player_id: currentPlayer.id,
             created_at: new Date().toISOString(),
+            player: { name: currentPlayer.name },
           });
         } else {
           const idx = likes.findIndex((l) => l.player_id === currentPlayer.id);
@@ -328,7 +348,7 @@ export function AdFundumFeed({
         };
       }),
     );
-    toast.success("🍻 Ad Fundum completed! Proof uploaded.");
+    toast.success("🍻 Adje completed! Proof uploaded.");
     if (data.newBadges?.length > 0) {
       data.newBadges.forEach((b: { emoji: string; name: string }) =>
         toast.success(`${b.emoji} Badge unlocked: ${b.name}!`, {
@@ -360,7 +380,7 @@ export function AdFundumFeed({
       {fundums.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-4xl mb-3">🍺</p>
-          <p className="font-semibold">No ad fundums yet</p>
+          <p className="font-semibold">No adjes yet</p>
           <p className="text-sm mt-1">Buy one for someone from the shop!</p>
         </div>
       ) : (

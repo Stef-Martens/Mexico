@@ -49,7 +49,7 @@ export default async function AdFundumsPage() {
             <div className="flex-1">
               <h1 className="text-lg font-bold flex items-center gap-1.5">
                 <span>🍺</span>
-                <span>Ad Fundums</span>
+                <span>Adjes</span>
               </h1>
             </div>
           </div>
