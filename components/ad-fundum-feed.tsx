@@ -162,9 +162,7 @@ function FundumCard({
           <span>
             Proof rejected — a new adje has been added
             {fundum.decline_reason && (
-              <>
-                {" "}because: &ldquo;{fundum.decline_reason}&rdquo;
-              </>
+              <> because: &ldquo;{fundum.decline_reason}&rdquo;</>
             )}
           </span>
         </div>
@@ -272,7 +270,8 @@ function FundumCard({
                 A new adje will be added for{" "}
                 <span className="font-semibold text-foreground">
                   {fundum.target_player?.name}
-                </span>.
+                </span>
+                .
               </p>
             </div>
             <textarea
@@ -531,7 +530,11 @@ export function AdFundumFeed({
       data.newAdje!,
       ...prev.map((f) =>
         f.id === id
-          ? { ...f, status: "declined" as const, decline_reason: reason || null }
+          ? {
+              ...f,
+              status: "declined" as const,
+              decline_reason: reason || null,
+            }
           : f,
       ),
     ]);

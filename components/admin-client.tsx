@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui";
+import type { Player } from "@/lib/queries";
 
 interface UserWithMembership {
   user_id: string;
@@ -13,13 +14,23 @@ interface UserWithMembership {
 
 interface AdminClientProps {
   users: UserWithMembership[];
+  players: Player[];
 }
 
-export function AdminClient({ users: initialUsers }: AdminClientProps) {
+export function AdminClient({ users: initialUsers, players }: AdminClientProps) {
   const [users, setUsers] = useState(initialUsers);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  // Send coins state
+  const [coinPlayerId, setCoinPlayerId] = useState("");
+  const [coinAmount, setCoinAmount] = useState("");
+  const [sendingCoins, setSendingCoins] = useState(false);
+  const [coinMessage, setCoinMessage] = useState<{
     text: string;
     type: "success" | "error";
   } | null>(null);
@@ -62,6 +73,34 @@ export function AdminClient({ users: initialUsers }: AdminClientProps) {
     }
   };
 
+  const handleSendCoins = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = parseInt(coinAmount, 10);
+    if (!coinPlayerId || isNaN(amount) || amount <= 0) return;
+    setSendingCoins(true);
+    setCoinMessage(null);
+    try {
+      const res = await fetch("/api/admin/award-coins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: coinPlayerId, amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      const name = players.find((p) => p.id === coinPlayerId)?.name ?? "Player";
+      setCoinMessage({ text: `✅ Sent ${amount} coins to ${name}!`, type: "success" });
+      setCoinAmount("");
+      setCoinPlayerId("");
+    } catch (error) {
+      setCoinMessage({
+        text: error instanceof Error ? error.message : "Failed to send coins",
+        type: "error",
+      });
+    } finally {
+      setSendingCoins(false);
+    }
+  };
+
   const nonMembers = users.filter((u) => !u.is_member);
   const members = users.filter((u) => u.is_member);
 
@@ -99,6 +138,70 @@ export function AdminClient({ users: initialUsers }: AdminClientProps) {
           )}
           <Button type="submit" disabled={loading}>
             {loading ? "Adding..." : "Add Member"}
+          </Button>
+        </form>
+      </div>
+
+      {/* Send Coins */}
+      <div className="bg-card rounded-lg p-6 border">
+        <h2 className="text-xl font-semibold mb-1">🪙 Send Coins</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Award coins after receiving a Revolut payment.
+        </p>
+        <form onSubmit={handleSendCoins} className="space-y-3">
+          <select
+            value={coinPlayerId}
+            onChange={(e) => setCoinPlayerId(e.target.value)}
+            required
+            className="w-full px-3 py-2 border rounded-md bg-background text-sm"
+          >
+            <option value="">— Select player —</option>
+            {players.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            {[30, 60, 150].map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setCoinAmount(String(preset))}
+                className={`flex-1 py-1.5 text-sm rounded-md border transition-colors ${
+                  coinAmount === String(preset)
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted border-border hover:bg-muted/80"
+                }`}
+              >
+                {preset}
+              </button>
+            ))}
+            <input
+              type="number"
+              min="1"
+              value={coinAmount}
+              onChange={(e) => setCoinAmount(e.target.value)}
+              placeholder="Custom"
+              className="flex-1 px-3 py-1.5 border rounded-md bg-background text-sm"
+            />
+          </div>
+          {coinMessage && (
+            <div
+              className={`p-3 rounded-md text-sm ${
+                coinMessage.type === "success"
+                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+              }`}
+            >
+              {coinMessage.text}
+            </div>
+          )}
+          <Button
+            type="submit"
+            disabled={sendingCoins || !coinPlayerId || !coinAmount}
+          >
+            {sendingCoins ? "Sending…" : "🪙 Send Coins"}
           </Button>
         </form>
       </div>

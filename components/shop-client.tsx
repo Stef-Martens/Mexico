@@ -69,6 +69,7 @@ export function ShopClient({
   const [selectedTarget, setSelectedTarget] = useState("");
   const [fundumReason, setFundumReason] = useState("");
   const [equipping, setEquipping] = useState<string | null>(null);
+  const [showBuyCoins, setShowBuyCoins] = useState(false);
 
   const equippedByType = inventory.reduce<Record<string, string>>((acc, pc) => {
     if (pc.equipped && pc.cosmetic) {
@@ -232,6 +233,76 @@ export function ShopClient({
           </p>
         </div>
       </div>
+
+      {/* Buy Coins */}
+      <section>
+        <button
+          onClick={() => setShowBuyCoins((v) => !v)}
+          className="w-full flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 transition-all hover:bg-muted/40 active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">💳</span>
+            <div className="text-left">
+              <p className="font-bold text-base">Buy Coins</p>
+              <p className="text-xs text-muted-foreground">
+                30 for €3 &middot; 60 for €5 &middot; 150 for €10
+              </p>
+            </div>
+          </div>
+          <span className="text-muted-foreground text-lg">{showBuyCoins ? "▲" : "▼"}</span>
+        </button>
+
+        {showBuyCoins && (
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Pay via Revolut — admin adds your coins after receiving payment. Include your in-game name in the note.
+            </p>
+            <div className="grid grid-cols-1 gap-3">
+              {[
+                { coins: 30, price: 3, popular: false },
+                { coins: 60, price: 5, popular: true },
+                { coins: 150, price: 10, popular: false },
+              ].map(({ coins: amount, price, popular }) => {
+                const link = process.env.NEXT_PUBLIC_REVOLUT_LINK ?? "#";
+                return (
+                  <a
+                    key={amount}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`relative flex items-center justify-between rounded-2xl border px-4 py-3.5 transition-all active:scale-[0.98] ${
+                      popular
+                        ? "border-primary/60 bg-gradient-to-r from-primary/10 to-primary/5 shadow-[0_0_0_1px] shadow-primary/20"
+                        : "border-border bg-card hover:bg-muted/40"
+                    }`}
+                  >
+                    {popular && (
+                      <span className="absolute -top-2.5 left-4 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+                        BEST VALUE
+                      </span>
+                    )}
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🪙</span>
+                      <div>
+                        <p className="font-bold text-base">{amount} coins</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(price / amount).toFixed(2).replace("0.", "")}¢ per coin
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold">€{price}</span>
+                      <span className="text-xs px-2.5 py-1 rounded-xl bg-primary/15 text-primary font-semibold">
+                        Pay →
+                      </span>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Mystery Boxes */}
       <section>

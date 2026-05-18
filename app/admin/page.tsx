@@ -3,6 +3,7 @@ import {
   checkIsAdmin,
   getCurrentUser,
   getAllUsersWithMembership,
+  getPlayers,
 } from "@/lib/queries";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -52,7 +53,10 @@ export default async function AdminPage() {
     );
   }
 
-  const users = await getAllUsersWithMembership();
+  const [users, players] = await Promise.all([
+    getAllUsersWithMembership(),
+    getPlayers(),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
@@ -77,7 +81,7 @@ export default async function AdminPage() {
         </div>
 
         {/* Admin Content */}
-        <AdminClient users={users} />
+        <AdminClient users={users} players={players} />
       </div>
     </div>
   );

@@ -35,7 +35,10 @@ export async function POST(
     let reason: string | undefined;
     try {
       const body = await _request.json();
-      reason = typeof body?.reason === "string" && body.reason.trim() ? body.reason.trim() : undefined;
+      reason =
+        typeof body?.reason === "string" && body.reason.trim()
+          ? body.reason.trim()
+          : undefined;
     } catch {
       // body is optional
     }
