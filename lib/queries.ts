@@ -657,6 +657,115 @@ export async function getAllCosmetics(): Promise<Cosmetic[]> {
   return data || [];
 }
 
+export interface CosmeticOwner {
+  player_id: string;
+  player_name: string;
+  equipped: boolean;
+  obtained_at: string;
+}
+
+export interface CosmeticWithOwners extends Cosmetic {
+  owners: CosmeticOwner[];
+}
+
+export async function getAllCosmeticsWithOwners(): Promise<CosmeticWithOwners[]> {
+  const admin = createAdminClient();
+
+  const [{ data: cosmetics, error: cError }, { data: playerCosmetics, error: pcError }] =
+    await Promise.all([
+      admin.from("cosmetics").select("*").order("rarity").order("name"),
+      admin
+        .from("player_cosmetics")
+        .select("cosmetic_id, player_id, equipped, obtained_at, player:players(name)"),
+    ]);
+
+  if (cError || pcError || !cosmetics) {
+    console.error("Error fetching cosmetics:", cError || pcError);
+    return [];
+  }
+
+  const ownersByCosmetic = new Map<string, CosmeticOwner[]>();
+  for (const row of playerCosmetics || []) {
+    const list = ownersByCosmetic.get(row.cosmetic_id) ?? [];
+    list.push({
+      player_id: row.player_id,
+      player_name: (row.player as any).name as string,
+      equipped: row.equipped,
+      obtained_at: row.obtained_at,
+    });
+    ownersByCosmetic.set(row.cosmetic_id, list);
+  }
+
+  return cosmetics.map((c) => ({
+    ...(c as Cosmetic),
+    owners: ownersByCosmetic.get(c.id) ?? [],
+  }));
+}
+
+export async function createCosmetic(input: {
+  name: string;
+  description: string;
+  type: string;
+  value: string;
+  preview: string;
+  rarity: string;
+}): Promise<Cosmetic | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("cosmetics").insert(input).select("*").single();
+  if (error) {
+    console.error("Error creating cosmetic:", error);
+    return null;
+  }
+  return data as Cosmetic;
+}
+
+export async function updateCosmetic(
+  cosmeticId: string,
+  input: {
+    name: string;
+    description: string;
+    type: string;
+    value: string;
+    preview: string;
+    rarity: string;
+  },
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("cosmetics").update(input).eq("id", cosmeticId);
+  if (error) {
+    console.error("Error updating cosmetic:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function deleteCosmetic(cosmeticId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("cosmetics").delete().eq("id", cosmeticId);
+  if (error) {
+    console.error("Error deleting cosmetic:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function revokeCosmeticFromPlayer(
+  cosmeticId: string,
+  playerId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("player_cosmetics")
+    .delete()
+    .eq("cosmetic_id", cosmeticId)
+    .eq("player_id", playerId);
+  if (error) {
+    console.error("Error revoking cosmetic:", error);
+    return false;
+  }
+  return true;
+}
+
 export async function getPlayerCosmetics(
   playerId: string,
 ): Promise<PlayerCosmetic[]> {
@@ -795,7 +904,7 @@ export async function unequipCosmetics(
 // Mystery Box
 // ─────────────────────────────────────────────────────────────
 
-const BOX_COSTS = { bronze: 5, silver: 15, gold: 50 } as const;
+const BOX_COSTS = { bronze: 5, silver: 15, gold: 30 } as const;
 const BOX_RARITY_POOLS: Record<string, string[]> = {
   bronze: ["common", "rare"],
   silver: ["rare", "epic"],
@@ -937,6 +1046,8 @@ export async function checkAndAwardBadges(
       case "cosmetics_owned":
         earned = (cosmeticsOwned ?? 0) >= val;
         break;
+      case "manual":
+        break;
     }
 
     if (earned) {
@@ -948,6 +1059,126 @@ export async function checkAndAwardBadges(
   }
 
   return newlyAwarded;
+}
+
+export interface BadgeHolder {
+  player_id: string;
+  player_name: string;
+  awarded_at: string;
+}
+
+export interface BadgeWithHolders extends Badge {
+  holders: BadgeHolder[];
+}
+
+export async function getAllBadgesWithHolders(): Promise<BadgeWithHolders[]> {
+  const admin = createAdminClient();
+
+  const [{ data: badges, error: badgesError }, { data: playerBadges, error: pbError }] =
+    await Promise.all([
+      admin.from("badges").select("*").order("condition_type").order("condition_value"),
+      admin
+        .from("player_badges")
+        .select("badge_id, player_id, awarded_at, player:players(name)"),
+    ]);
+
+  if (badgesError || pbError || !badges) {
+    console.error("Error fetching badges:", badgesError || pbError);
+    return [];
+  }
+
+  const holdersByBadge = new Map<string, BadgeHolder[]>();
+  for (const row of playerBadges || []) {
+    const list = holdersByBadge.get(row.badge_id) ?? [];
+    list.push({
+      player_id: row.player_id,
+      player_name: (row.player as any).name as string,
+      awarded_at: row.awarded_at,
+    });
+    holdersByBadge.set(row.badge_id, list);
+  }
+
+  return badges.map((badge) => ({
+    ...(badge as Badge),
+    holders: holdersByBadge.get(badge.id) ?? [],
+  }));
+}
+
+export async function createBadge(input: {
+  name: string;
+  description: string;
+  emoji: string;
+  condition_type: string;
+  condition_value: number | null;
+}): Promise<Badge | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("badges").insert(input).select("*").single();
+  if (error) {
+    console.error("Error creating badge:", error);
+    return null;
+  }
+  return data as Badge;
+}
+
+export async function updateBadge(
+  badgeId: string,
+  input: {
+    name: string;
+    description: string;
+    emoji: string;
+    condition_type: string;
+    condition_value: number | null;
+  },
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("badges").update(input).eq("id", badgeId);
+  if (error) {
+    console.error("Error updating badge:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function deleteBadge(badgeId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("badges").delete().eq("id", badgeId);
+  if (error) {
+    console.error("Error deleting badge:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function revokeBadgeFromPlayer(
+  badgeId: string,
+  playerId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("player_badges")
+    .delete()
+    .eq("badge_id", badgeId)
+    .eq("player_id", playerId);
+  if (error) {
+    console.error("Error revoking badge:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function awardBadgeToPlayer(
+  badgeId: string,
+  playerId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("player_badges")
+    .upsert({ badge_id: badgeId, player_id: playerId }, { onConflict: "player_id,badge_id" });
+  if (error) {
+    console.error("Error awarding badge:", error);
+    return false;
+  }
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────

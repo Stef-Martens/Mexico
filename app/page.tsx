@@ -134,15 +134,26 @@ export default async function HomePage() {
               </Button>
             </Link>
             {isAdmin && (
-              <Link href="/admin" className="flex-1 min-w-[60px]">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full h-7 px-1.5 text-xs"
-                >
-                  ⚙️ Admin
-                </Button>
-              </Link>
+              <>
+                <Link href="/admin/cosmetics" className="flex-1 min-w-[60px]">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-7 px-1.5 text-xs"
+                  >
+                    🎨 Items
+                  </Button>
+                </Link>
+                <Link href="/admin" className="flex-1 min-w-[60px]">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-7 px-1.5 text-xs"
+                  >
+                    ⚙️ Admin
+                  </Button>
+                </Link>
+              </>
             )}
           </div>
         </div>

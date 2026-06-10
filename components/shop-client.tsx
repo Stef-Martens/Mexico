@@ -37,7 +37,7 @@ const BOX_TIERS = [
     id: "gold" as const,
     name: "Gold Box",
     emoji: "✨",
-    cost: 50,
+    cost: 30,
     desc: "Epic & Legendary cosmetics",
     gradient: "from-yellow-800/40 to-yellow-500/20",
     border: "border-yellow-500/50",
