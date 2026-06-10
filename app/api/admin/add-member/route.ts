@@ -14,30 +14,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Get email from request body
-    const { email } = await request.json();
+    const { email, userId } = await request.json();
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
-
-    // Use the SECURITY DEFINER function to add member (it checks admin internally)
-    const { data: userData, error: userError } = await supabase.rpc(
-      "get_user_id_by_email",
-      { user_email: email },
-    );
-
-    if (userError) {
-      console.error("Error finding user:", userError);
+    if (!email && !userId) {
       return NextResponse.json(
-        { error: userError.message || "User not found with this email" },
-        { status: 404 },
+        { error: "Email or user ID is required" },
+        { status: 400 },
       );
     }
 
-    // Use admin function to add member (bypasses RLS)
+    let targetUserId = userId as string | undefined;
+
+    if (!targetUserId) {
+      const { data: userData, error: userError } = await supabase.rpc(
+        "get_user_id_by_email",
+        { user_email: email },
+      );
+
+      if (userError) {
+        console.error("Error finding user:", userError);
+        return NextResponse.json(
+          { error: userError.message || "User not found with this email" },
+          { status: 404 },
+        );
+      }
+
+      targetUserId = userData;
+    }
+
     const { error: addError } = await supabase.rpc("admin_add_member", {
-      target_user_id: userData,
+      target_user_id: targetUserId,
     });
 
     if (addError) {

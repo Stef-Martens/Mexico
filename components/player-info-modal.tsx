@@ -97,7 +97,7 @@ export function PlayerInfoModal({
                     {info.player.name.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <div className="flex-1 grid grid-cols-2 gap-2">
+                <div className="flex-1 grid grid-cols-3 gap-2">
                   <div className="bg-muted/50 rounded-xl p-2.5 text-center">
                     <p className="text-xl font-bold">{info.allTimeCount}</p>
                     <p className="text-xs text-muted-foreground">All time</p>
@@ -105,6 +105,12 @@ export function PlayerInfoModal({
                   <div className="bg-muted/50 rounded-xl p-2.5 text-center">
                     <p className="text-xl font-bold">{info.yearCount}</p>
                     <p className="text-xs text-muted-foreground">This year</p>
+                  </div>
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-2.5 text-center">
+                    <p className="text-xl font-bold">
+                      🪙 {info.player.coins ?? 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Coins</p>
                   </div>
                 </div>
               </div>

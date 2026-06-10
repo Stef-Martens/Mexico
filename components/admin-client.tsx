@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import type { Player } from "@/lib/queries";
+import { Check, X, UserPlus, Clock } from "lucide-react";
 
 interface UserWithMembership {
   user_id: string;
@@ -22,6 +23,12 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<{
     text: string;
     type: "success" | "error";
   } | null>(null);
@@ -61,7 +68,6 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
       });
       setEmail("");
 
-      // Refresh the page to show updated list
       window.location.reload();
     } catch (error) {
       setMessage({
@@ -70,6 +76,80 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAccept = async (user: UserWithMembership) => {
+    setActionLoading(`accept-${user.user_id}`);
+    setActionMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/add-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.user_id }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to accept user");
+      }
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.user_id === user.user_id ? { ...u, is_member: true } : u,
+        ),
+      );
+      setActionMessage({
+        text: `✅ ${user.email} is now a member`,
+        type: "success",
+      });
+    } catch (error) {
+      setActionMessage({
+        text: error instanceof Error ? error.message : "Failed to accept user",
+        type: "error",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDecline = async (user: UserWithMembership) => {
+    if (
+      !confirm(
+        `Decline access for ${user.email}? They will be hidden from this list.`,
+      )
+    ) {
+      return;
+    }
+
+    setActionLoading(`decline-${user.user_id}`);
+    setActionMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/decline-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.user_id }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to decline user");
+      }
+
+      setUsers((prev) => prev.filter((u) => u.user_id !== user.user_id));
+      setActionMessage({
+        text: `Declined ${user.email}`,
+        type: "success",
+      });
+    } catch (error) {
+      setActionMessage({
+        text: error instanceof Error ? error.message : "Failed to decline user",
+        type: "error",
+      });
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -106,9 +186,97 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
 
   return (
     <div className="space-y-8">
+      {/* Pending Access Requests */}
+      <div className="bg-card rounded-lg p-6 border">
+        <div className="flex items-center gap-2 mb-1">
+          <Clock className="w-5 h-5 text-amber-500" />
+          <h2 className="text-xl font-semibold">Pending Access Requests</h2>
+          {nonMembers.length > 0 && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              {nonMembers.length}
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Users who signed in but don&apos;t have access yet.
+        </p>
+
+        {actionMessage && (
+          <div
+            className={`mb-4 p-3 rounded-md text-sm ${
+              actionMessage.type === "success"
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+            }`}
+          >
+            {actionMessage.text}
+          </div>
+        )}
+
+        {nonMembers.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic py-4 text-center">
+            No pending requests — all clear!
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {nonMembers.map((user) => {
+              const isAccepting = actionLoading === `accept-${user.user_id}`;
+              const isDeclining = actionLoading === `decline-${user.user_id}`;
+              const isBusy = isAccepting || isDeclining;
+
+              return (
+                <div
+                  key={user.user_id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{user.email}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Registered{" "}
+                      {new Date(user.created_at).toLocaleDateString(undefined, {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={() => handleAccept(user)}
+                      disabled={isBusy}
+                      className="gap-1.5"
+                    >
+                      <Check className="w-4 h-4" />
+                      {isAccepting ? "Accepting…" : "Accept"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDecline(user)}
+                      disabled={isBusy}
+                      className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+                    >
+                      <X className="w-4 h-4" />
+                      {isDeclining ? "Declining…" : "Decline"}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Add Member Form */}
       <div className="bg-card rounded-lg p-6 border">
-        <h2 className="text-xl font-semibold mb-4">Add New Member</h2>
+        <div className="flex items-center gap-2 mb-1">
+          <UserPlus className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-semibold">Add Member by Email</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Manually grant access if you know their email address.
+        </p>
         <form onSubmit={handleAddMember} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-2">
@@ -121,7 +289,7 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"
               required
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border rounded-md bg-background"
               disabled={loading}
             />
           </div>
@@ -206,34 +374,10 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
         </form>
       </div>
 
-      {/* Non-Members List */}
-      {nonMembers.length > 0 && (
-        <div className="bg-card rounded-lg p-6 border">
-          <h2 className="text-xl font-semibold mb-4">
-            Registered Users (Not Members) - {nonMembers.length}
-          </h2>
-          <div className="space-y-2">
-            {nonMembers.map((user) => (
-              <div
-                key={user.user_id}
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-              >
-                <div>
-                  <div className="font-medium">{user.email}</div>
-                  <div className="text-sm text-muted-foreground">
-                    Registered: {new Date(user.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Members List */}
       <div className="bg-card rounded-lg p-6 border">
         <h2 className="text-xl font-semibold mb-4">
-          Current Members - {members.length}
+          Current Members — {members.length}
         </h2>
         <div className="space-y-2">
           {members.map((user) => (
@@ -251,7 +395,12 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Member since: {new Date(user.created_at).toLocaleDateString()}
+                  Member since:{" "}
+                  {new Date(user.created_at).toLocaleDateString(undefined, {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
                 </div>
               </div>
             </div>

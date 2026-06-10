@@ -8,6 +8,7 @@ export interface Player {
   created_at: string;
   avatar_url?: string | null;
   user_id?: string | null;
+  coins?: number;
 }
 
 export interface MexicoEvent {
