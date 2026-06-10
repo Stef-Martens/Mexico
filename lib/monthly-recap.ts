@@ -11,7 +11,7 @@ import {
   getPreviousMonthRange,
 } from "@/lib/time-ranges";
 import { buildMonthlyRecapEmail } from "@/lib/email/monthly-recap-email";
-import { Resend } from "resend";
+import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
 
 export const MONTHLY_COIN_AWARDS: Record<number, number> = {
   1: 20,
@@ -183,6 +183,8 @@ export async function runMonthlyRecap(options?: {
   yearMonth?: string;
   dryRun?: boolean;
   force?: boolean;
+  /** Send a single preview email only — no coins, no run record */
+  testEmailOnly?: string;
 }): Promise<MonthlyRecapResult> {
   const monthRange = options?.yearMonth
     ? getMonthRange(
@@ -194,7 +196,9 @@ export async function runMonthlyRecap(options?: {
   const { start, end, label, yearMonth } = monthRange;
   const previousMonthRange = getMonthBefore(yearMonth);
 
-  if (!options?.force && (await hasRecapAlreadyRun(yearMonth))) {
+  const isTestSend = !!options?.testEmailOnly;
+
+  if (!isTestSend && !options?.force && (await hasRecapAlreadyRun(yearMonth))) {
     return {
       yearMonth,
       monthLabel: label,
@@ -219,7 +223,7 @@ export async function runMonthlyRecap(options?: {
 
   const coinsAwarded: MonthlyRecapResult["coinsAwarded"] = [];
 
-  if (!options?.dryRun) {
+  if (!options?.dryRun && !isTestSend) {
     for (let i = 0; i < Math.min(3, leaderboard.length); i++) {
       const entry = leaderboard[i];
       const rank = i + 1;
@@ -249,11 +253,7 @@ export async function runMonthlyRecap(options?: {
     }
   }
 
-  const resendKey = process.env.RESEND_API_KEY;
-  const emailFrom =
-    process.env.EMAIL_FROM || "Mexico <onboarding@resend.dev>";
-
-  if (!resendKey) {
+  if (!isEmailConfigured()) {
     return {
       yearMonth,
       monthLabel: label,
@@ -262,51 +262,83 @@ export async function runMonthlyRecap(options?: {
       honorableMentions,
       coinsAwarded,
       skipped: false,
-      error: "RESEND_API_KEY is not configured",
+      error:
+        "Gmail is not configured. Connect Gmail from the admin panel first.",
     };
   }
 
-  const resend = new Resend(resendKey);
   let emailsSent = 0;
 
-  for (const member of members) {
+  const recipients = isTestSend
+    ? (() => {
+        const match = members.find(
+          (m) =>
+            m.email.toLowerCase() === options.testEmailOnly!.toLowerCase(),
+        );
+        if (match) return [match];
+        return [
+          {
+            id: "preview",
+            name: "Stef",
+            user_id: "preview",
+            email: options.testEmailOnly!,
+            coins: 0,
+          } satisfies MemberPlayerWithEmail,
+        ];
+      })()
+    : members;
+
+  for (const member of recipients) {
     const rank = getRank(leaderboard, member.id);
-    const coinsEarned =
-      coinsAwarded.find((c) => c.playerId === member.id)?.coins ?? 0;
+    const coinsEarned = isTestSend
+      ? (rank && rank <= 3 ? MONTHLY_COIN_AWARDS[rank] : 0)
+      : (coinsAwarded.find((c) => c.playerId === member.id)?.coins ?? 0);
 
     const html = buildMonthlyRecapEmail({
       playerName: member.name,
       monthLabel: label,
-      personalSummary: getPersonalSummary(
-        member,
-        leaderboard,
-        coinsEarned,
-        label,
-      ),
+      personalSummary:
+        member.id === "preview"
+          ? `This is a preview of the ${label} monthly recap. Your personal stats would appear here.`
+          : getPersonalSummary(member, leaderboard, coinsEarned, label),
       honorableMentions,
       leaderboard: leaderboard.slice(0, 10),
       coinsEarned,
-      rank,
+      rank: member.id === "preview" ? null : rank,
     });
 
     if (options?.dryRun) continue;
 
-    const { error } = await resend.emails.send({
-      from: emailFrom,
-      to: member.email,
-      subject: `🎲 Mexico Monthly Recap — ${label}`,
+    const { success, error } = await sendEmail({
+      to: isTestSend ? options.testEmailOnly! : member.email,
+      subject: isTestSend
+        ? `🎲 [Preview] Mexico Monthly Recap — ${label}`
+        : `🎲 Mexico Monthly Recap — ${label}`,
       html,
     });
 
-    if (error) {
+    if (!success) {
       console.error(`Failed to send recap to ${member.email}:`, error);
+      if (isTestSend) {
+        return {
+          yearMonth,
+          monthLabel: label,
+          emailsSent: 0,
+          recipientCount: 1,
+          honorableMentions,
+          coinsAwarded,
+          skipped: false,
+          error,
+        };
+      }
       continue;
     }
 
     emailsSent++;
+    if (isTestSend) break;
   }
 
-  if (!options?.dryRun) {
+  if (!options?.dryRun && !isTestSend) {
     await recordRecapRun(yearMonth, emailsSent, coinsAwarded);
   }
 
@@ -314,7 +346,7 @@ export async function runMonthlyRecap(options?: {
     yearMonth,
     monthLabel: label,
     emailsSent,
-    recipientCount: members.length,
+    recipientCount: isTestSend ? 1 : members.length,
     honorableMentions,
     coinsAwarded,
     skipped: false,

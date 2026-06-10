@@ -171,16 +171,7 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
     }
   };
 
-  const handleSendMonthlyRecap = async (dryRun: boolean) => {
-    if (
-      !dryRun &&
-      !confirm(
-        "Send monthly recap emails for last month? This awards coins to the top 3 and emails all members.",
-      )
-    ) {
-      return;
-    }
-
+  const handleSendTestRecap = async () => {
     setRecapSending(true);
     setRecapMessage(null);
 
@@ -188,29 +179,25 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
       const response = await fetch("/api/admin/monthly-recap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dryRun }),
+        body: JSON.stringify({ testEmail: true }),
       });
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send recap");
+        throw new Error(data.error || data.message || "Failed to send test email");
       }
 
-      const awards = (data.coinsAwarded as { playerName: string; rank: number; coins: number }[])
-        .map((a) => `${a.playerName} (+${a.coins})`)
-        .join(", ");
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
       setRecapMessage({
-        text: dryRun
-          ? `Dry run for ${data.monthLabel}: would email ${data.recipientCount} members. Awards: ${awards || "none"}`
-          : data.skipped
-            ? `Already sent for ${data.monthLabel}`
-            : `Sent ${data.emailsSent} emails for ${data.monthLabel}. Coins: ${awards || "none"}`,
+        text: `Test email sent for ${data.monthLabel} — check stef.m@hotmail.be`,
         type: "success",
       });
     } catch (error) {
       setRecapMessage({
-        text: error instanceof Error ? error.message : "Failed to send recap",
+        text: error instanceof Error ? error.message : "Failed to send test email",
         type: "error",
       });
     } finally {
@@ -487,9 +474,20 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
           <h2 className="text-xl font-semibold">Monthly Recap Emails</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Sends a recap email to all members for the previous month. Top 3 get
-          coins: 🥇 20, 🥈 10, 🥉 5. Runs automatically on the 1st of each month.
+          On the 1st of each month, all members automatically receive a recap
+          for the previous month. Top 3 get coins: 🥇 20, 🥈 10, 🥉 5. Use the
+          test button below to preview what it looks like.
         </p>
+        <div className="mb-4">
+          <a href="/api/admin/gmail-auth">
+            <Button type="button" variant="outline" size="sm">
+              Connect Gmail
+            </Button>
+          </a>
+          <p className="text-xs text-muted-foreground mt-2">
+            One-time setup. Authorize with the Gmail account you want to send from.
+          </p>
+        </div>
         {recapMessage && (
           <div
             className={`mb-4 p-3 rounded-md text-sm ${
@@ -501,21 +499,16 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
             {recapMessage.text}
           </div>
         )}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => handleSendMonthlyRecap(true)}
-            variant="outline"
-            disabled={recapSending}
-          >
-            {recapSending ? "Running…" : "Preview (dry run)"}
-          </Button>
-          <Button
-            onClick={() => handleSendMonthlyRecap(false)}
-            disabled={recapSending}
-          >
-            {recapSending ? "Sending…" : "Send now"}
-          </Button>
-        </div>
+        <Button
+          onClick={handleSendTestRecap}
+          variant="outline"
+          disabled={recapSending}
+        >
+          {recapSending ? "Sending…" : "Send test email"}
+        </Button>
+        <p className="text-xs text-muted-foreground mt-2">
+          Sends a preview to stef.m@hotmail.be only. No coins awarded.
+        </p>
       </div>
 
       {/* Members List */}

@@ -9,21 +9,25 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { yearMonth, dryRun, force } = body as {
-    yearMonth?: string;
-    dryRun?: boolean;
-    force?: boolean;
-  };
+  const { testEmail } = body as { testEmail?: boolean };
+
+  const testEmailOnly =
+    process.env.MONTHLY_RECAP_TEST_EMAIL || "stef.m@hotmail.be";
+
+  if (!testEmail) {
+    return NextResponse.json(
+      { error: "Only test emails can be triggered from the admin panel" },
+      { status: 400 },
+    );
+  }
 
   try {
-    const result = await runMonthlyRecap({ yearMonth, dryRun, force });
+    const result = await runMonthlyRecap({ testEmailOnly });
 
     return NextResponse.json({
-      message: dryRun
-        ? `Dry run complete for ${result.monthLabel}`
-        : result.skipped
-          ? `Recap for ${result.monthLabel} was already sent`
-          : `Monthly recap sent for ${result.monthLabel}`,
+      message: result.error
+        ? result.error
+        : `Test recap sent to ${testEmailOnly} for ${result.monthLabel}`,
       ...result,
     });
   } catch (error) {
