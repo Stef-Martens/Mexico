@@ -253,7 +253,8 @@ export async function runMonthlyRecap(options?: {
     }
   }
 
-  if (!isEmailConfigured()) {
+  if (!(await isEmailConfigured())) {
+    const { getEmailConfigError } = await import("@/lib/email/send-email");
     return {
       yearMonth,
       monthLabel: label,
@@ -263,7 +264,8 @@ export async function runMonthlyRecap(options?: {
       coinsAwarded,
       skipped: false,
       error:
-        "Gmail is not configured. Connect Gmail from the admin panel first.",
+        getEmailConfigError() ??
+        "Gmail not connected. Click Connect Gmail in the admin panel, then try again.",
     };
   }
 

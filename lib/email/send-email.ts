@@ -1,6 +1,7 @@
 import {
   encodeMessage,
   getAuthenticatedGmailClient,
+  getGmailRefreshToken,
 } from "@/lib/email/gmail-client";
 
 interface SendEmailOptions {
@@ -22,13 +23,24 @@ function parseSender(from: string): { name: string; email: string } {
   return { name: "Mexico", email: from.trim() };
 }
 
-export function isEmailConfigured(): boolean {
+export async function isEmailConfigured(): Promise<boolean> {
+  const refreshToken = await getGmailRefreshToken();
   return !!(
     process.env.GOOGLE_CLIENT_ID &&
     process.env.GOOGLE_CLIENT_SECRET &&
-    process.env.GOOGLE_REFRESH_TOKEN &&
+    refreshToken &&
     process.env.EMAIL_FROM
   );
+}
+
+export function getEmailConfigError(): string | null {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in Vercel environment variables.";
+  }
+  if (!process.env.EMAIL_FROM) {
+    return "EMAIL_FROM must be set in Vercel environment variables.";
+  }
+  return null;
 }
 
 export async function sendEmail(
@@ -40,12 +52,17 @@ export async function sendEmail(
     return { success: false, error: "EMAIL_FROM is not configured" };
   }
 
+  const configError = getEmailConfigError();
+  if (configError) {
+    return { success: false, error: configError };
+  }
+
   const gmail = await getAuthenticatedGmailClient();
   if (!gmail) {
     return {
       success: false,
       error:
-        "Gmail is not configured. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN.",
+        "Gmail not connected. Click Connect Gmail in the admin panel, then try again.",
     };
   }
 

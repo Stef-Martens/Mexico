@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 
 const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 
@@ -38,8 +39,41 @@ export async function exchangeCodeForTokens(code: string, origin: string) {
   return tokens;
 }
 
+export async function saveGmailRefreshToken(refreshToken: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("gmail_tokens").upsert({
+    id: 1,
+    refresh_token: refreshToken,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    throw new Error(`Failed to save Gmail token: ${error.message}`);
+  }
+}
+
+export async function getGmailRefreshToken(): Promise<string | null> {
+  if (process.env.GOOGLE_REFRESH_TOKEN) {
+    return process.env.GOOGLE_REFRESH_TOKEN;
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("gmail_tokens")
+      .select("refresh_token")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (error || !data?.refresh_token) return null;
+    return data.refresh_token;
+  } catch {
+    return null;
+  }
+}
+
 export async function getAuthenticatedGmailClient() {
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  const refreshToken = await getGmailRefreshToken();
   const oauth2Client = createOAuth2Client();
   if (!oauth2Client || !refreshToken) {
     return null;

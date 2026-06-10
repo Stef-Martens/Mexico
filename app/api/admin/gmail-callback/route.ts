@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { checkIsAdmin } from "@/lib/queries";
-import { exchangeCodeForTokens } from "@/lib/email/gmail-client";
+import {
+  exchangeCodeForTokens,
+  saveGmailRefreshToken,
+} from "@/lib/email/gmail-client";
 
 export async function GET(request: Request) {
   const isAdmin = await checkIsAdmin();
@@ -35,6 +38,8 @@ Make sure you see the consent screen (we request offline access).`,
       );
     }
 
+    await saveGmailRefreshToken(tokens.refresh_token);
+
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -42,17 +47,13 @@ Make sure you see the consent screen (we request offline access).`,
   <title>Gmail Connected</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.5; }
-    code, pre { background: #f4f4f5; padding: 12px; border-radius: 8px; display: block; overflow-x: auto; word-break: break-all; }
     h1 { color: #166534; }
   </style>
 </head>
 <body>
   <h1>✅ Gmail connected</h1>
-  <p>Add this to your <code>.env.local</code> and Vercel environment variables:</p>
-  <pre>GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}</pre>
-  <p>Also set <code>EMAIL_FROM</code> to your Gmail address, e.g.:</p>
-  <pre>EMAIL_FROM=Mexico &lt;your@gmail.com&gt;</pre>
-  <p>Restart your dev server, then try sending a test recap from the admin panel.</p>
+  <p>Your Gmail refresh token has been saved. You can send test emails from the admin panel now.</p>
+  <p>Make sure these are set in Vercel: <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, and <code>EMAIL_FROM</code>.</p>
   <p><a href="/admin">← Back to admin panel</a></p>
 </body>
 </html>`;
