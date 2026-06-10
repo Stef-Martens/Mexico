@@ -18,6 +18,39 @@ interface AdminClientProps {
   players: Player[];
 }
 
+const RECAP_MONTHS = [
+  { value: 1, label: "January" },
+  { value: 2, label: "February" },
+  { value: 3, label: "March" },
+  { value: 4, label: "April" },
+  { value: 5, label: "May" },
+  { value: 6, label: "June" },
+  { value: 7, label: "July" },
+  { value: 8, label: "August" },
+  { value: 9, label: "September" },
+  { value: 10, label: "October" },
+  { value: 11, label: "November" },
+  { value: 12, label: "December" },
+];
+
+function getBrusselsYearMonth(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Brussels",
+    year: "numeric",
+    month: "numeric",
+  });
+  const parts = formatter.formatToParts(date);
+  const get = (type: string) =>
+    parseInt(parts.find((p) => p.type === type)?.value ?? "0", 10);
+  return { year: get("year"), month: get("month") };
+}
+
+function getPreviousMonthBrussels() {
+  const { year, month } = getBrusselsYearMonth();
+  if (month === 1) return { year: year - 1, month: 12 };
+  return { year, month: month - 1 };
+}
+
 export function AdminClient({ users: initialUsers, players }: AdminClientProps) {
   const [users, setUsers] = useState(initialUsers);
   const [playerList, setPlayerList] = useState(players);
@@ -59,6 +92,13 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
     text: string;
     type: "success" | "error";
   } | null>(null);
+  const [recapYear, setRecapYear] = useState(getPreviousMonthBrussels().year);
+  const [recapMonth, setRecapMonth] = useState(getPreviousMonthBrussels().month);
+
+  const recapYearOptions = useMemo(() => {
+    const currentYear = getBrusselsYearMonth().year;
+    return Array.from({ length: currentYear - 2024 + 1 }, (_, i) => 2024 + i);
+  }, []);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,11 +215,13 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
     setRecapSending(true);
     setRecapMessage(null);
 
+    const yearMonth = `${recapYear}-${String(recapMonth).padStart(2, "0")}`;
+
     try {
       const response = await fetch("/api/admin/monthly-recap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ testEmail: true }),
+        body: JSON.stringify({ testEmail: true, yearMonth }),
       });
 
       const data = await response.json();
@@ -192,7 +234,7 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
       }
 
       setRecapMessage({
-        text: `Test email sent for ${data.monthLabel} — check stef.m@hotmail.be`,
+        text: `Test email sent for ${data.monthLabel}`,
         type: "success",
       });
     } catch (error) {
@@ -499,15 +541,52 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
             {recapMessage.text}
           </div>
         )}
-        <Button
-          onClick={handleSendTestRecap}
-          variant="outline"
-          disabled={recapSending}
-        >
-          {recapSending ? "Sending…" : "Send test email"}
-        </Button>
-        <p className="text-xs text-muted-foreground mt-2">
-          Sends a preview to stef.m@hotmail.be only. No coins awarded.
+        <div className="flex flex-wrap items-end gap-3 mb-3">
+          <div>
+            <label htmlFor="recap-month" className="block text-xs font-medium mb-1">
+              Month
+            </label>
+            <select
+              id="recap-month"
+              value={recapMonth}
+              onChange={(e) => setRecapMonth(parseInt(e.target.value, 10))}
+              className="px-3 py-2 border rounded-md bg-background text-sm min-w-[140px]"
+            >
+              {RECAP_MONTHS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="recap-year" className="block text-xs font-medium mb-1">
+              Year
+            </label>
+            <select
+              id="recap-year"
+              value={recapYear}
+              onChange={(e) => setRecapYear(parseInt(e.target.value, 10))}
+              className="px-3 py-2 border rounded-md bg-background text-sm min-w-[100px]"
+            >
+              {recapYearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            onClick={handleSendTestRecap}
+            variant="outline"
+            disabled={recapSending}
+          >
+            {recapSending ? "Sending…" : "Send test email"}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Sends a preview to stef.m@hotmail.be only. No coins awarded. Current
+          month shows stats so far.
         </p>
       </div>
 

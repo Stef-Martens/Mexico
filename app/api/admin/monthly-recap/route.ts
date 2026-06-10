@@ -9,7 +9,10 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { testEmail } = body as { testEmail?: boolean };
+  const { testEmail, yearMonth } = body as {
+    testEmail?: boolean;
+    yearMonth?: string;
+  };
 
   const testEmailOnly =
     process.env.MONTHLY_RECAP_TEST_EMAIL || "stef.m@hotmail.be";
@@ -21,8 +24,15 @@ export async function POST(request: Request) {
     );
   }
 
+  if (yearMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth)) {
+    return NextResponse.json({ error: "Invalid yearMonth format" }, { status: 400 });
+  }
+
   try {
-    const result = await runMonthlyRecap({ testEmailOnly });
+    const result = await runMonthlyRecap({
+      testEmailOnly,
+      yearMonth,
+    });
 
     return NextResponse.json({
       message: result.error
