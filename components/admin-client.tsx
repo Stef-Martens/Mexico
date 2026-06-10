@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui";
 import type { Player } from "@/lib/queries";
-import { Check, X, UserPlus, Clock } from "lucide-react";
+import { Check, X, UserPlus, Clock, Pencil } from "lucide-react";
 
 interface UserWithMembership {
   user_id: string;
@@ -20,6 +20,18 @@ interface AdminClientProps {
 
 export function AdminClient({ users: initialUsers, players }: AdminClientProps) {
   const [users, setUsers] = useState(initialUsers);
+  const [playerList, setPlayerList] = useState(players);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+
+  const playerByUserId = useMemo(() => {
+    const map = new Map<string, Player>();
+    for (const player of playerList) {
+      if (player.user_id) map.set(player.user_id, player);
+    }
+    return map;
+  }, [playerList]);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -167,7 +179,8 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
-      const name = players.find((p) => p.id === coinPlayerId)?.name ?? "Player";
+      const name =
+        playerList.find((p) => p.id === coinPlayerId)?.name ?? "Player";
       setCoinMessage({ text: `✅ Sent ${amount} coins to ${name}!`, type: "success" });
       setCoinAmount("");
       setCoinPlayerId("");
@@ -178,6 +191,46 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
       });
     } finally {
       setSendingCoins(false);
+    }
+  };
+
+  const startEditingName = (userId: string, currentName: string) => {
+    setEditingUserId(userId);
+    setEditName(currentName);
+  };
+
+  const cancelEditingName = () => {
+    setEditingUserId(null);
+    setEditName("");
+  };
+
+  const handleSaveName = async (playerId: string) => {
+    const trimmed = editName.trim();
+    if (!trimmed) return;
+
+    setNameSaving(true);
+    try {
+      const response = await fetch("/api/admin/update-player-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId, name: trimmed }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update name");
+      }
+
+      setPlayerList((prev) =>
+        prev.map((p) => (p.id === playerId ? { ...p, name: trimmed } : p)),
+      );
+      cancelEditingName();
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Failed to update name",
+      );
+    } finally {
+      setNameSaving(false);
     }
   };
 
@@ -324,7 +377,7 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
             className="w-full px-3 py-2 border rounded-md bg-background text-sm"
           >
             <option value="">— Select player —</option>
-            {players.map((p) => (
+            {playerList.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
@@ -380,31 +433,83 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
           Current Members — {members.length}
         </h2>
         <div className="space-y-2">
-          {members.map((user) => (
-            <div
-              key={user.user_id}
-              className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{user.email}</span>
-                  {user.is_admin && (
-                    <span className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded-full">
-                      Admin
-                    </span>
+          {members.map((user) => {
+            const player = playerByUserId.get(user.user_id);
+            const isEditing = editingUserId === user.user_id;
+
+            return (
+              <div
+                key={user.user_id}
+                className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/50"
+              >
+                <div className="min-w-0 flex-1">
+                  {isEditing && player ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="flex-1 min-w-0 px-2 py-1 text-sm border rounded-md bg-background"
+                        autoFocus
+                        disabled={nameSaving}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveName(player.id);
+                          if (e.key === "Escape") cancelEditingName();
+                        }}
+                      />
+                      <button
+                        onClick={() => handleSaveName(player.id)}
+                        disabled={nameSaving || !editName.trim()}
+                        className="p-1.5 rounded-md text-primary hover:bg-primary/10 disabled:opacity-50"
+                        aria-label="Save name"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={cancelEditingName}
+                        disabled={nameSaving}
+                        className="p-1.5 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-50"
+                        aria-label="Cancel"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">
+                        {player?.name ?? user.email}
+                      </span>
+                      {user.is_admin && (
+                        <span className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded-full shrink-0">
+                          Admin
+                        </span>
+                      )}
+                    </div>
                   )}
+                  <div className="text-sm text-muted-foreground truncate">
+                    {player ? user.email : "No player profile yet"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Member since:{" "}
+                    {new Date(user.created_at).toLocaleDateString(undefined, {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Member since:{" "}
-                  {new Date(user.created_at).toLocaleDateString(undefined, {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </div>
+                {player && !isEditing && (
+                  <button
+                    onClick={() => startEditingName(user.user_id, player.name)}
+                    className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors shrink-0"
+                    aria-label={`Edit ${player.name}'s name`}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

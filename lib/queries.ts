@@ -337,6 +337,31 @@ export async function updatePlayerProfile(
   return true;
 }
 
+/** Update any player's display name (admin only) */
+export async function updatePlayerNameByAdmin(
+  playerId: string,
+  name: string,
+): Promise<boolean> {
+  const isAdmin = await checkIsAdmin();
+  if (!isAdmin) return false;
+
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("players")
+    .update({ name: trimmed })
+    .eq("id", playerId);
+
+  if (error) {
+    console.error("Error updating player name:", error);
+    return false;
+  }
+
+  return true;
+}
+
 export interface EventLogEntry {
   id: string;
   created_at: string;
