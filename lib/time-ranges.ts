@@ -81,6 +81,58 @@ export function getStartDateForRange(range: TimeRange): string | null {
 /**
  * Get a human-readable label for a time range
  */
+/** Get Brussels calendar year/month for a date */
+export function getBrusselsYearMonth(date = new Date()): {
+  year: number;
+  month: number;
+} {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Brussels",
+    year: "numeric",
+    month: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value;
+  return {
+    year: parseInt(get("year")!),
+    month: parseInt(get("month")!),
+  };
+}
+
+/** ISO range for a calendar month in Europe/Brussels */
+export function getMonthRange(
+  year: number,
+  month: number,
+): { start: string; end: string; label: string; yearMonth: string } {
+  const start = `${year}-${String(month).padStart(2, "0")}-01T00:00:00+01:00`;
+  const endYear = month === 12 ? year + 1 : year;
+  const endMonth = month === 12 ? 1 : month + 1;
+  const end = `${endYear}-${String(endMonth).padStart(2, "0")}-01T00:00:00+01:00`;
+  const label = new Date(year, month - 1, 1).toLocaleString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+  return { start, end, label, yearMonth: `${year}-${String(month).padStart(2, "0")}` };
+}
+
+/** Previous calendar month in Europe/Brussels */
+export function getPreviousMonthRange(date = new Date()) {
+  const { year, month } = getBrusselsYearMonth(date);
+  const prevYear = month === 1 ? year - 1 : year;
+  const prevMonth = month === 1 ? 12 : month - 1;
+  return getMonthRange(prevYear, prevMonth);
+}
+
+/** Month before a given year-month string (e.g. "2026-05" → April 2026) */
+export function getMonthBefore(yearMonth: string) {
+  const [yearStr, monthStr] = yearMonth.split("-");
+  const year = parseInt(yearStr);
+  const month = parseInt(monthStr);
+  const prevYear = month === 1 ? year - 1 : year;
+  const prevMonth = month === 1 ? 12 : month - 1;
+  return getMonthRange(prevYear, prevMonth);
+}
+
 export function getRangeLabel(range: TimeRange): string {
   switch (range) {
     case "tonight":

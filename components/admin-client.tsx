@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui";
 import type { Player } from "@/lib/queries";
-import { Check, X, UserPlus, Clock, Pencil } from "lucide-react";
+import { Check, X, UserPlus, Clock, Pencil, Mail } from "lucide-react";
 
 interface UserWithMembership {
   user_id: string;
@@ -50,6 +50,12 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
   const [coinAmount, setCoinAmount] = useState("");
   const [sendingCoins, setSendingCoins] = useState(false);
   const [coinMessage, setCoinMessage] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const [recapSending, setRecapSending] = useState(false);
+  const [recapMessage, setRecapMessage] = useState<{
     text: string;
     type: "success" | "error";
   } | null>(null);
@@ -162,6 +168,53 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
       });
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleSendMonthlyRecap = async (dryRun: boolean) => {
+    if (
+      !dryRun &&
+      !confirm(
+        "Send monthly recap emails for last month? This awards coins to the top 3 and emails all members.",
+      )
+    ) {
+      return;
+    }
+
+    setRecapSending(true);
+    setRecapMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/monthly-recap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send recap");
+      }
+
+      const awards = (data.coinsAwarded as { playerName: string; rank: number; coins: number }[])
+        .map((a) => `${a.playerName} (+${a.coins})`)
+        .join(", ");
+
+      setRecapMessage({
+        text: dryRun
+          ? `Dry run for ${data.monthLabel}: would email ${data.recipientCount} members. Awards: ${awards || "none"}`
+          : data.skipped
+            ? `Already sent for ${data.monthLabel}`
+            : `Sent ${data.emailsSent} emails for ${data.monthLabel}. Coins: ${awards || "none"}`,
+        type: "success",
+      });
+    } catch (error) {
+      setRecapMessage({
+        text: error instanceof Error ? error.message : "Failed to send recap",
+        type: "error",
+      });
+    } finally {
+      setRecapSending(false);
     }
   };
 
@@ -425,6 +478,44 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
             {sendingCoins ? "Sending…" : "🪙 Send Coins"}
           </Button>
         </form>
+      </div>
+
+      {/* Monthly Recap */}
+      <div className="bg-card rounded-lg p-6 border">
+        <div className="flex items-center gap-2 mb-1">
+          <Mail className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-semibold">Monthly Recap Emails</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Sends a recap email to all members for the previous month. Top 3 get
+          coins: 🥇 20, 🥈 10, 🥉 5. Runs automatically on the 1st of each month.
+        </p>
+        {recapMessage && (
+          <div
+            className={`mb-4 p-3 rounded-md text-sm ${
+              recapMessage.type === "success"
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+            }`}
+          >
+            {recapMessage.text}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => handleSendMonthlyRecap(true)}
+            variant="outline"
+            disabled={recapSending}
+          >
+            {recapSending ? "Running…" : "Preview (dry run)"}
+          </Button>
+          <Button
+            onClick={() => handleSendMonthlyRecap(false)}
+            disabled={recapSending}
+          >
+            {recapSending ? "Sending…" : "Send now"}
+          </Button>
+        </div>
       </div>
 
       {/* Members List */}

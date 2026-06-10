@@ -271,6 +271,105 @@ export async function getLeaderboard(
 }
 
 /**
+ * Get leaderboard for a bounded date range (e.g. a calendar month)
+ */
+export async function getLeaderboardForRange(
+  startDate: string,
+  endDate: string,
+): Promise<{ player_id: string; player_name: string; mexico_count: number }[]> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("mexico_events")
+    .select(
+      `
+      player_id,
+      players!inner(name)
+    `,
+    )
+    .gte("created_at", startDate)
+    .lt("created_at", endDate);
+
+  if (error) {
+    console.error("Error fetching leaderboard for range:", error);
+    return [];
+  }
+
+  const aggregated = (data || []).reduce(
+    (acc, row) => {
+      const playerId = row.player_id;
+      const playerName = (row.players as any).name;
+
+      if (!acc[playerId]) {
+        acc[playerId] = {
+          player_id: playerId,
+          player_name: playerName,
+          mexico_count: 0,
+        };
+      }
+      acc[playerId].mexico_count++;
+      return acc;
+    },
+    {} as Record<
+      string,
+      { player_id: string; player_name: string; mexico_count: number }
+    >,
+  );
+
+  return Object.values(aggregated).sort(
+    (a, b) => b.mexico_count - a.mexico_count,
+  );
+}
+
+export interface MemberPlayerWithEmail {
+  id: string;
+  name: string;
+  user_id: string;
+  email: string;
+  coins: number;
+}
+
+/** Get all app members with linked player profiles and emails */
+export async function getMemberPlayersWithEmails(): Promise<
+  MemberPlayerWithEmail[]
+> {
+  const admin = createAdminClient();
+
+  const [{ data: players, error: playersError }, { data: members, error: membersError }] =
+    await Promise.all([
+      admin.from("players").select("id, name, user_id, coins").not("user_id", "is", null),
+      admin.from("app_members").select("user_id"),
+    ]);
+
+  if (playersError || membersError || !players) {
+    console.error("Error fetching member players:", playersError || membersError);
+    return [];
+  }
+
+  const memberIds = new Set((members || []).map((m) => m.user_id));
+  const results: MemberPlayerWithEmail[] = [];
+
+  for (const player of players) {
+    if (!player.user_id || !memberIds.has(player.user_id)) continue;
+
+    const { data: authData, error: authError } =
+      await admin.auth.admin.getUserById(player.user_id);
+
+    if (authError || !authData.user.email) continue;
+
+    results.push({
+      id: player.id,
+      name: player.name,
+      user_id: player.user_id,
+      email: authData.user.email,
+      coins: player.coins ?? 0,
+    });
+  }
+
+  return results.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
  * Get current user
  */
 export async function getCurrentUser() {
