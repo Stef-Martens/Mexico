@@ -35,10 +35,11 @@ export default async function LeaderboardPage() {
   }
 
   // Fetch all leaderboards in parallel
-  const [tonightEntries, weekEntries, yearEntries, allTimeEntries] =
+  const [tonightEntries, weekEntries, monthEntries, yearEntries, allTimeEntries] =
     await Promise.all([
       getLeaderboard(getStartDateForRange("tonight")),
       getLeaderboard(getStartDateForRange("week")),
+      getLeaderboard(getStartDateForRange("month")),
       getLeaderboard(getStartDateForRange("year")),
       getLeaderboard(getStartDateForRange("all")),
     ]);
@@ -69,6 +70,7 @@ export default async function LeaderboardPage() {
           <LeaderboardClient
             tonightEntries={tonightEntries}
             weekEntries={weekEntries}
+            monthEntries={monthEntries}
             yearEntries={yearEntries}
             allTimeEntries={allTimeEntries}
           />

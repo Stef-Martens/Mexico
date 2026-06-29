@@ -13,6 +13,7 @@ interface LeaderboardEntry {
 interface LeaderboardClientProps {
   tonightEntries: LeaderboardEntry[];
   weekEntries: LeaderboardEntry[];
+  monthEntries: LeaderboardEntry[];
   yearEntries: LeaderboardEntry[];
   allTimeEntries: LeaderboardEntry[];
 }
@@ -20,6 +21,7 @@ interface LeaderboardClientProps {
 export function LeaderboardClient({
   tonightEntries,
   weekEntries,
+  monthEntries,
   yearEntries,
   allTimeEntries,
 }: LeaderboardClientProps) {
@@ -27,9 +29,10 @@ export function LeaderboardClient({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-5">
         <TabsTrigger value="tonight">Tonight</TabsTrigger>
         <TabsTrigger value="week">Week</TabsTrigger>
+        <TabsTrigger value="month">Month</TabsTrigger>
         <TabsTrigger value="year">Year</TabsTrigger>
         <TabsTrigger value="all">All Time</TabsTrigger>
       </TabsList>
@@ -40,6 +43,10 @@ export function LeaderboardClient({
 
       <TabsContent value="week">
         <Leaderboard entries={weekEntries} title="This Week" />
+      </TabsContent>
+
+      <TabsContent value="month">
+        <Leaderboard entries={monthEntries} title="This Month" />
       </TabsContent>
 
       <TabsContent value="year">

@@ -3,7 +3,7 @@
  * All times are in Europe/Brussels timezone
  */
 
-export type TimeRange = "tonight" | "week" | "year" | "all";
+export type TimeRange = "tonight" | "week" | "month" | "year" | "all";
 
 export interface LeaderboardEntry {
   player_id: string;
@@ -66,6 +66,9 @@ export function getStartDateForRange(range: TimeRange): string | null {
       monday.setDate(monday.getDate() - daysToMonday);
 
       return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}T00:00:00+01:00`;
+    }
+    case "month": {
+      return `${year}-${String(month).padStart(2, "0")}-01T00:00:00+01:00`;
     }
     case "year": {
       // Start of this year
@@ -139,6 +142,8 @@ export function getRangeLabel(range: TimeRange): string {
       return "Tonight";
     case "week":
       return "This Week";
+    case "month":
+      return "This Month";
     case "year":
       return "This Year";
     case "all":
