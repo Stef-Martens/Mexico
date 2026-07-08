@@ -520,16 +520,6 @@ export function AdminClient({ users: initialUsers, players }: AdminClientProps) 
           for the previous month. Top 3 get coins: 🥇 20, 🥈 10, 🥉 5. Use the
           test button below to preview what it looks like.
         </p>
-        <div className="mb-4">
-          <a href="/api/admin/gmail-auth">
-            <Button type="button" variant="outline" size="sm">
-              Connect Gmail
-            </Button>
-          </a>
-          <p className="text-xs text-muted-foreground mt-2">
-            One-time setup. Authorize with the Gmail account you want to send from.
-          </p>
-        </div>
         {recapMessage && (
           <div
             className={`mb-4 p-3 rounded-md text-sm ${

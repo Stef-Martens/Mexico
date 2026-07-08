@@ -265,7 +265,7 @@ export async function runMonthlyRecap(options?: {
       skipped: false,
       error:
         getEmailConfigError() ??
-        "Gmail not connected. Click Connect Gmail in the admin panel, then try again.",
+        "Email not configured. Set GMAIL_APP_PASSWORD and EMAIL_FROM in environment variables.",
     };
   }
 

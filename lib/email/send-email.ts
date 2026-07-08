@@ -1,8 +1,4 @@
-import {
-  encodeMessage,
-  getAuthenticatedGmailClient,
-  getGmailRefreshToken,
-} from "@/lib/email/gmail-client";
+import nodemailer from "nodemailer";
 
 interface SendEmailOptions {
   to: string;
@@ -24,21 +20,15 @@ function parseSender(from: string): { name: string; email: string } {
 }
 
 export async function isEmailConfigured(): Promise<boolean> {
-  const refreshToken = await getGmailRefreshToken();
-  return !!(
-    process.env.GOOGLE_CLIENT_ID &&
-    process.env.GOOGLE_CLIENT_SECRET &&
-    refreshToken &&
-    process.env.EMAIL_FROM
-  );
+  return !!(process.env.EMAIL_FROM && process.env.GMAIL_APP_PASSWORD);
 }
 
 export function getEmailConfigError(): string | null {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    return "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in Vercel environment variables.";
-  }
   if (!process.env.EMAIL_FROM) {
-    return "EMAIL_FROM must be set in Vercel environment variables.";
+    return "EMAIL_FROM must be set in environment variables.";
+  }
+  if (!process.env.GMAIL_APP_PASSWORD) {
+    return "GMAIL_APP_PASSWORD must be set in environment variables.";
   }
   return null;
 }
@@ -57,33 +47,24 @@ export async function sendEmail(
     return { success: false, error: configError };
   }
 
-  const gmail = await getAuthenticatedGmailClient();
-  if (!gmail) {
-    return {
-      success: false,
-      error:
-        "Gmail not connected. Click Connect Gmail in the admin panel, then try again.",
-    };
-  }
-
   const sender = parseSender(from);
 
-  const rawMessage = [
-    `From: ${sender.name} <${sender.email}>`,
-    `To: ${options.to}`,
-    `Subject: =?UTF-8?B?${Buffer.from(options.subject).toString("base64")}?=`,
-    "MIME-Version: 1.0",
-    "Content-Type: text/html; charset=UTF-8",
-    "",
-    options.html,
-  ].join("\r\n");
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    auth: {
+      user: sender.email,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
 
   try {
-    await gmail.users.messages.send({
-      userId: "me",
-      requestBody: {
-        raw: encodeMessage(rawMessage),
-      },
+    await transporter.sendMail({
+      from: `${sender.name} <${sender.email}>`,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
     });
 
     return { success: true };
