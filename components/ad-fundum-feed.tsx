@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { Heart, MessageCircle, Upload, Send, XCircle, Play } from "lucide-react";
+import {
+  Heart,
+  MessageCircle,
+  Upload,
+  Send,
+  XCircle,
+  Play,
+  X,
+  ChevronDown,
+} from "lucide-react";
 import type { AdFundum, AdFundumComment, Player } from "@/lib/queries";
 
 interface AdFundumFeedProps {
@@ -21,7 +30,25 @@ function timeAgo(date: string) {
 
 function LazyVideo({ src }: { src: string }) {
   const [activated, setActivated] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const handlePlay = useCallback(() => {
     setActivated(true);
@@ -33,37 +60,42 @@ function LazyVideo({ src }: { src: string }) {
     }
   }, [activated]);
 
-  if (!activated) {
+  if (activated) {
     return (
+      <video
+        ref={videoRef}
+        src={src}
+        controls
+        playsInline
+        className="w-full max-h-96 object-contain"
+      />
+    );
+  }
+
+  return (
+    <div ref={containerRef}>
       <button
         onClick={handlePlay}
         className="relative w-full flex items-center justify-center cursor-pointer group"
       >
-        <video
-          src={src}
-          preload="metadata"
-          playsInline
-          muted
-          className="w-full max-h-96 object-contain pointer-events-none"
-        />
+        {visible ? (
+          <video
+            src={src}
+            preload="metadata"
+            playsInline
+            muted
+            className="w-full max-h-96 object-contain pointer-events-none"
+          />
+        ) : (
+          <div className="w-full aspect-video" />
+        )}
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
           <div className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
             <Play className="w-8 h-8 text-white fill-white ml-1" />
           </div>
         </div>
       </button>
-    );
-  }
-
-  return (
-    <video
-      ref={videoRef}
-      src={src}
-      controls
-      playsInline
-      preload="none"
-      className="w-full max-h-96 object-contain"
-    />
+    </div>
   );
 }
 
@@ -424,6 +456,8 @@ export function AdFundumFeed({
   isAdmin = false,
 }: AdFundumFeedProps) {
   const [fundums, setFundums] = useState<AdFundum[]>(initialFundums);
+  const [filter, setFilter] = useState<string | null>(null);
+  const [showPlayerPicker, setShowPlayerPicker] = useState(false);
 
   useEffect(() => {
     setFundums(initialFundums);
@@ -434,6 +468,26 @@ export function AdFundumFeed({
   const myPendingCount = fundums.filter(
     (f) => f.target_player_id === currentPlayer.id && f.status === "pending",
   ).length;
+
+  const players = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    fundums.forEach((f) => {
+      if (f.target_player) {
+        map.set(f.target_player_id, {
+          id: f.target_player_id,
+          name: f.target_player.name,
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [fundums]);
+
+  const filteredFundums = useMemo(() => {
+    if (!filter) return fundums;
+    return fundums.filter((f) => f.target_player_id === filter);
+  }, [fundums, filter]);
 
   async function handleLike(id: string) {
     const res = await fetch(`/api/ad-fundums/${id}/like`, { method: "POST" });
@@ -603,16 +657,102 @@ export function AdFundumFeed({
         </div>
       </div>
 
+      {/* Filter bar */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            setFilter(null);
+            setShowPlayerPicker(false);
+          }}
+          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            filter === null
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => {
+            setFilter(currentPlayer.id);
+            setShowPlayerPicker(false);
+          }}
+          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            filter === currentPlayer.id
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+        >
+          Mine
+        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowPlayerPicker(!showPlayerPicker)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              filter && filter !== currentPlayer.id
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {filter && filter !== currentPlayer.id
+              ? players.find((p) => p.id === filter)?.name
+              : "Player"}
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+          {showPlayerPicker && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowPlayerPicker(false)}
+              />
+              <div className="absolute top-full left-0 mt-1.5 z-50 w-48 max-h-64 overflow-y-auto rounded-xl border border-border bg-card shadow-lg py-1">
+                {players
+                  .filter((p) => p.id !== currentPlayer.id)
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setFilter(p.id);
+                        setShowPlayerPicker(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                        filter === p.id
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Feed */}
-      {fundums.length === 0 ? (
+      {filteredFundums.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-4xl mb-3">🍺</p>
-          <p className="font-semibold">No adjes yet</p>
-          <p className="text-sm mt-1">Buy one for someone from the shop!</p>
+          <p className="font-semibold">
+            {filter ? "No adjes found" : "No adjes yet"}
+          </p>
+          <p className="text-sm mt-1">
+            {filter ? (
+              <button
+                onClick={() => setFilter(null)}
+                className="text-primary underline"
+              >
+                Show all
+              </button>
+            ) : (
+              "Buy one for someone from the shop!"
+            )}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {fundums.map((f) => (
+          {filteredFundums.map((f) => (
             <FundumCard
               key={f.id}
               fundum={f}
