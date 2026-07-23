@@ -225,26 +225,42 @@ export async function getLeaderboard(
 ): Promise<{ player_id: string; player_name: string; mexico_count: number }[]> {
   const supabase = await createClient();
 
-  let query = supabase.from("mexico_events").select(
-    `
-      player_id,
-      players!inner(name)
-    `,
-  );
+  const PAGE_SIZE = 1000;
+  let allData: { player_id: string; players: { name: string } }[] = [];
+  let page = 0;
 
-  if (startDate) {
-    query = query.gte("created_at", startDate);
-  }
+  while (true) {
+    let query = supabase.from("mexico_events").select(
+      `
+        player_id,
+        players!inner(name)
+      `,
+    );
 
-  const { data, error } = await query;
+    if (startDate) {
+      query = query.gte("created_at", startDate);
+    }
 
-  if (error) {
-    console.error("Error fetching leaderboard:", error);
-    return [];
+    const { data, error } = await query.range(
+      page * PAGE_SIZE,
+      (page + 1) * PAGE_SIZE - 1,
+    );
+
+    if (error) {
+      console.error("Error fetching leaderboard:", error);
+      return [];
+    }
+
+    allData = allData.concat((data as any) || []);
+
+    if (!data || data.length < PAGE_SIZE) {
+      break;
+    }
+    page++;
   }
 
   // Aggregate by player
-  const aggregated = (data || []).reduce(
+  const aggregated = allData.reduce(
     (acc, row) => {
       const playerId = row.player_id;
       const playerName = (row.players as any).name;
@@ -279,23 +295,37 @@ export async function getLeaderboardForRange(
 ): Promise<{ player_id: string; player_name: string; mexico_count: number }[]> {
   const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from("mexico_events")
-    .select(
-      `
-      player_id,
-      players!inner(name)
-    `,
-    )
-    .gte("created_at", startDate)
-    .lt("created_at", endDate);
+  const PAGE_SIZE = 1000;
+  let allData: { player_id: string; players: { name: string } }[] = [];
+  let page = 0;
 
-  if (error) {
-    console.error("Error fetching leaderboard for range:", error);
-    return [];
+  while (true) {
+    const { data, error } = await admin
+      .from("mexico_events")
+      .select(
+        `
+        player_id,
+        players!inner(name)
+      `,
+      )
+      .gte("created_at", startDate)
+      .lt("created_at", endDate)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    if (error) {
+      console.error("Error fetching leaderboard for range:", error);
+      return [];
+    }
+
+    allData = allData.concat((data as any) || []);
+
+    if (!data || data.length < PAGE_SIZE) {
+      break;
+    }
+    page++;
   }
 
-  const aggregated = (data || []).reduce(
+  const aggregated = allData.reduce(
     (acc, row) => {
       const playerId = row.player_id;
       const playerName = (row.players as any).name;
