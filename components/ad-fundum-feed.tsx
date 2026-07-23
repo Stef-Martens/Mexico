@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { Heart, MessageCircle, Upload, Send, XCircle } from "lucide-react";
+import { Heart, MessageCircle, Upload, Send, XCircle, Play } from "lucide-react";
 import type { AdFundum, AdFundumComment, Player } from "@/lib/queries";
 
 interface AdFundumFeedProps {
@@ -17,6 +17,54 @@ function timeAgo(date: string) {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function LazyVideo({ src }: { src: string }) {
+  const [activated, setActivated] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handlePlay = useCallback(() => {
+    setActivated(true);
+  }, []);
+
+  useEffect(() => {
+    if (activated && videoRef.current) {
+      videoRef.current.play();
+    }
+  }, [activated]);
+
+  if (!activated) {
+    return (
+      <button
+        onClick={handlePlay}
+        className="relative w-full flex items-center justify-center cursor-pointer group"
+      >
+        <video
+          src={src}
+          preload="metadata"
+          playsInline
+          muted
+          className="w-full max-h-96 object-contain pointer-events-none"
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+          <div className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <Play className="w-8 h-8 text-white fill-white ml-1" />
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      controls
+      playsInline
+      preload="none"
+      className="w-full max-h-96 object-contain"
+    />
+  );
 }
 
 interface FundumCardProps {
@@ -172,16 +220,12 @@ function FundumCard({
       {(isCompleted || isDeclined) && fundum.media_url && (
         <div className="w-full bg-black">
           {fundum.media_type === "video" ? (
-            <video
-              src={fundum.media_url}
-              controls
-              playsInline
-              className="w-full max-h-96 object-contain"
-            />
+            <LazyVideo src={fundum.media_url} />
           ) : (
             <img
               src={fundum.media_url}
               alt="Adje proof"
+              loading="lazy"
               className="w-full max-h-96 object-contain"
             />
           )}
