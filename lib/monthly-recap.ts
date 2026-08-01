@@ -221,6 +221,22 @@ export async function runMonthlyRecap(options?: {
     previousLeaderboard,
   );
 
+  if (!(await isEmailConfigured())) {
+    const { getEmailConfigError } = await import("@/lib/email/send-email");
+    return {
+      yearMonth,
+      monthLabel: label,
+      emailsSent: 0,
+      recipientCount: members.length,
+      honorableMentions,
+      coinsAwarded: [],
+      skipped: false,
+      error:
+        getEmailConfigError() ??
+        "Email not configured. Set GMAIL_APP_PASSWORD and EMAIL_FROM in environment variables.",
+    };
+  }
+
   const coinsAwarded: MonthlyRecapResult["coinsAwarded"] = [];
 
   if (!options?.dryRun && !isTestSend) {
@@ -251,22 +267,6 @@ export async function runMonthlyRecap(options?: {
         coins,
       });
     }
-  }
-
-  if (!(await isEmailConfigured())) {
-    const { getEmailConfigError } = await import("@/lib/email/send-email");
-    return {
-      yearMonth,
-      monthLabel: label,
-      emailsSent: 0,
-      recipientCount: members.length,
-      honorableMentions,
-      coinsAwarded,
-      skipped: false,
-      error:
-        getEmailConfigError() ??
-        "Email not configured. Set GMAIL_APP_PASSWORD and EMAIL_FROM in environment variables.",
-    };
   }
 
   let emailsSent = 0;
