@@ -4,7 +4,7 @@
   "description": "Track Mexico (2-1) dice game scores",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#efeee8",
   "theme_color": "#000000",
   "orientation": "portrait",
   "icons": [

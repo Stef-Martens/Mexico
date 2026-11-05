@@ -12,7 +12,7 @@ interface LeaderboardProps {
 export function Leaderboard({ entries, title }: LeaderboardProps) {
   if (entries.length === 0) {
     return (
-      <Card className="border-2">
+      <Card>
         <CardHeader>
           <CardTitle className="text-2xl">{title}</CardTitle>
         </CardHeader>
@@ -33,7 +33,7 @@ export function Leaderboard({ entries, title }: LeaderboardProps) {
   };
 
   return (
-    <Card className="border-2">
+    <Card>
       <CardHeader className="pb-4">
         <CardTitle className="text-2xl">{title}</CardTitle>
       </CardHeader>

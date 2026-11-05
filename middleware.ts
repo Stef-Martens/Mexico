@@ -13,9 +13,10 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - api/cron (cron jobs use Bearer token auth, not cookies)
+     * - manifest.json (browsers fetch it without cookies, so it must stay public)
      * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/cron|manifest\\.json$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
 

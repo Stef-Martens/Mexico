@@ -41,7 +41,7 @@ export function PlayerInfoModal({
 
   useEffect(() => {
     fetch(`/api/player/${playerId}/info`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         setInfo(data);
         setLoading(false);

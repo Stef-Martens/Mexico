@@ -1,6 +1,5 @@
 import {
   checkAppMembership,
-  checkIsAdmin,
   getCurrentUser,
   getPlayers,
   getLeaderboard,
@@ -9,13 +8,11 @@ import {
   getPlayersWithPendingAdFundums,
 } from "@/lib/queries";
 import { getStartDateForRange } from "@/lib/time-ranges";
+import { buildStandings } from "@/lib/standings";
 import { redirect } from "next/navigation";
 import { PlayerCard } from "@/components/player-card";
-import { Leaderboard } from "@/components/leaderboard";
 import { SignOutButton } from "@/components/sign-out-button";
 import { RefreshButton } from "@/components/refresh-button";
-import { Button } from "@/components/ui";
-import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -43,146 +40,53 @@ export default async function HomePage() {
   // Ensure current user is in the players list
   await ensureCurrentUserAsPlayer();
 
-  const isAdmin = await checkIsAdmin();
-  const players = await getPlayers();
-  const tonightStart = getStartDateForRange("tonight");
-  const [tonightLeaderboard, equippedCosmetics, pendingFundumPlayerIds] =
-    await Promise.all([
-      getLeaderboard(tonightStart),
-      getEquippedCosmeticsForAllPlayers(),
-      getPlayersWithPendingAdFundums(),
-    ]);
+  const [
+    players,
+    allTimeLeaderboard,
+    tonightLeaderboard,
+    equippedCosmetics,
+    pendingFundumPlayerIds,
+  ] = await Promise.all([
+    getPlayers(),
+    getLeaderboard(getStartDateForRange("all")),
+    getLeaderboard(getStartDateForRange("tonight")),
+    getEquippedCosmeticsForAllPlayers(),
+    getPlayersWithPendingAdFundums(),
+  ]);
+
+  const standings = buildStandings(
+    players,
+    allTimeLeaderboard,
+    tonightLeaderboard,
+  );
+  const tonightTotal = tonightLeaderboard.reduce(
+    (sum, entry) => sum + entry.mexico_count,
+    0,
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      {/* Header Bar - Mobile Optimized */}
-      <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-3 py-2.5">
-          {/* Title Row */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold flex items-center">
-                <span className="text-2xl mr-1.5">🎲</span>
-                <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  Mexico
-                </span>
-              </h1>
-              <p className="text-[10px] text-muted-foreground truncate">
-                {user.email}
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 ml-2">
-              <RefreshButton />
-              <SignOutButton />
-            </div>
-          </div>
-
-          {/* Navigation Row */}
-          <div className="flex items-center gap-1 text-xs flex-wrap">
-            <Link href="/regels" className="flex-1 min-w-[60px]">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-7 px-1.5 text-xs"
-              >
-                📖 Rules
-              </Button>
-            </Link>
-            <Link href="/profile" className="flex-1 min-w-[60px]">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-7 px-1.5 text-xs"
-              >
-                👤 Profile
-              </Button>
-            </Link>
-            <Link href="/leaderboard" className="flex-1 min-w-[60px]">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-7 px-1.5 text-xs"
-              >
-                🏆 Board
-              </Button>
-            </Link>
-            <Link href="/shop" className="flex-1 min-w-[60px]">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-7 px-1.5 text-xs"
-              >
-                🛒 Shop
-              </Button>
-            </Link>
-            <Link href="/ad-fundums" className="flex-1 min-w-[60px]">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-7 px-1.5 text-xs"
-              >
-                🍺 Adjes
-              </Button>
-            </Link>
-            <Link href="/log" className="flex-1 min-w-[60px]">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-7 px-1.5 text-xs"
-              >
-                📋 Log
-              </Button>
-            </Link>
-            {isAdmin && (
-              <>
-                <Link href="/admin/cosmetics" className="flex-1 min-w-[60px]">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full h-7 px-1.5 text-xs"
-                  >
-                    🎨 Items
-                  </Button>
-                </Link>
-                <Link href="/admin" className="flex-1 min-w-[60px]">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full h-7 px-1.5 text-xs"
-                  >
-                    ⚙️ Admin
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-background py-2 pl-3 pr-1">
+        <h1 className="text-2xl font-extrabold tracking-tight">Mexico</h1>
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <span className="tabular-nums">{tonightTotal} tonight</span>
+          <RefreshButton iconOnly />
         </div>
-      </div>
+      </header>
 
-      <div className="px-3 py-4 space-y-6">
-        {/* Players Section */}
-        <div>
-          <h2 className="text-lg font-bold mb-3">Select Player</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {players.map((player) => (
-              <PlayerCard
-                key={player.id}
-                player={player}
-                equippedCosmetics={equippedCosmetics[player.id] ?? []}
-                hasPendingAdFundum={pendingFundumPlayerIds.has(player.id)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Tonight's Leaderboard */}
-        <div>
-          <Leaderboard
-            entries={tonightLeaderboard}
-            title="🏆 Tonight's Leaderboard"
+      <main className="grid grid-cols-2 gap-2.5 px-3 pb-4 pt-1">
+        {standings.map(({ player, allTimeCount, tonightCount }, index) => (
+          <PlayerCard
+            key={player.id}
+            player={player}
+            allTimeCount={allTimeCount}
+            tonightCount={tonightCount}
+            isLeader={index === 0}
+            equippedCosmetics={equippedCosmetics[player.id] ?? []}
+            hasPendingAdFundum={pendingFundumPlayerIds.has(player.id)}
           />
-        </div>
-      </div>
+        ))}
+      </main>
     </div>
   );
 }

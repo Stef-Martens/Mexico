@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Info } from "lucide-react";
 import { PlayerInfoModal } from "@/components/player-info-modal";
 import type { Cosmetic } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 
 interface PlayerCardProps {
   player: {
@@ -13,6 +14,9 @@ interface PlayerCardProps {
     name: string;
     avatar_url?: string | null;
   };
+  allTimeCount: number;
+  tonightCount: number;
+  isLeader?: boolean;
   equippedCosmetics?: Cosmetic[];
   hasPendingAdFundum?: boolean;
 }
@@ -66,6 +70,9 @@ function parseCosmeticStyles(cosmetics: Cosmetic[]): {
 
 export function PlayerCard({
   player,
+  allTimeCount,
+  tonightCount,
+  isLeader = false,
   equippedCosmetics,
   hasPendingAdFundum,
 }: PlayerCardProps) {
@@ -135,126 +142,169 @@ export function PlayerCard({
     }
   };
 
-  // Build card border style: cosmetic gradient or default class
-  const cardBorderStyle = cardBorder
+  // A cosmetic border is painted behind the padding box, so the card colour
+  // has to be layered in between.
+  const cardColor = "linear-gradient(hsl(var(--card)), hsl(var(--card)))";
+  const cardStyle: React.CSSProperties = cardBorder
     ? {
         border: "2px solid transparent",
-        backgroundColor: "hsl(var(--card))",
         backgroundImage: cardBg
-          ? `${cardBg}, linear-gradient(hsl(var(--card)), hsl(var(--card))), ${cardBorder}`
-          : `linear-gradient(hsl(var(--card)), hsl(var(--card))), ${cardBorder}`,
+          ? `${cardBg}, ${cardColor}, ${cardBorder}`
+          : `${cardColor}, ${cardBorder}`,
         backgroundOrigin: "border-box",
         backgroundClip: cardBg
           ? "padding-box, padding-box, border-box"
           : "padding-box, border-box",
         boxShadow: cardGlow,
       }
-    : undefined;
+    : {
+        backgroundImage: cardBg ? `${cardBg}, ${cardColor}` : undefined,
+        boxShadow: cardGlow,
+      };
+
+  const avatar = (
+    <div
+      className={cn(
+        "relative shrink-0 rounded-full",
+        isLeader
+          ? "h-[clamp(56px,17vw,70px)] w-[clamp(56px,17vw,70px)]"
+          : "h-[clamp(44px,14vw,58px)] w-[clamp(44px,14vw,58px)]",
+        isLeader ? "p-0.5" : "p-[1.5px]",
+      )}
+      style={{ background: avatarRing ?? "hsl(var(--foreground))" }}
+    >
+      <div
+        className={cn(
+          "h-full w-full overflow-hidden rounded-full bg-card",
+          hasPendingAdFundum && "brightness-75 grayscale",
+        )}
+      >
+        {player.avatar_url ? (
+          <img
+            src={player.avatar_url}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-muted-foreground text-2xl font-bold text-card">
+            {player.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+      {avatarBadge && (
+        <span
+          className={cn(
+            "absolute -bottom-1 -right-1 leading-none",
+            isLeader ? "text-xl" : "text-base",
+          )}
+        >
+          {avatarBadge}
+        </span>
+      )}
+    </div>
+  );
+
+  const subtitle = isLoading
+    ? "Logging..."
+    : hasPendingAdFundum
+      ? "Owes Adje"
+      : cardTitle;
+  const nameBlock = (
+    <>
+      <span
+        className={cn(
+          "block truncate font-bold",
+          isLeader ? "text-lg" : "pr-5 text-[15px]",
+        )}
+      >
+        {player.name}
+      </span>
+      <span
+        className={cn(
+          "block min-h-4 truncate text-xs leading-4",
+          !isLeader && "pr-5",
+          hasPendingAdFundum && !isLoading
+            ? "font-bold text-red-600 dark:text-red-400"
+            : "text-muted-foreground",
+        )}
+      >
+        {subtitle}
+      </span>
+    </>
+  );
+
+  const score = (
+    <div className={cn("min-w-0", isLeader && "pr-7 text-right")}>
+      <div
+        className={cn(
+          "font-extrabold leading-none tabular-nums",
+          isLeader
+            ? "text-[clamp(34px,11vw,46px)] tracking-[-0.05em]"
+            : "text-[clamp(26px,8.2vw,34px)] tracking-[-0.04em]",
+        )}
+      >
+        {allTimeCount}
+      </div>
+      <div
+        className={cn(
+          "mt-0.5 whitespace-nowrap text-xs font-bold",
+          tonightCount > 0
+            ? "text-green-700 dark:text-green-400"
+            : "font-semibold text-muted-foreground",
+        )}
+      >
+        {tonightCount > 0 ? `+${tonightCount}` : "0"} tonight
+      </div>
+    </div>
+  );
 
   return (
     <>
-      <div className="relative">
+      <div className={cn("relative", isLeader && "col-span-2")}>
         <button
           onClick={handleClick}
           disabled={isLoading}
-          className="group w-full relative rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed p-6"
-          style={
-            cardBorderStyle ?? {
-              background: cardBg ?? undefined,
-              boxShadow: cardGlow,
-            }
-          }
+          aria-label={`Log a Mexico for ${player.name}`}
+          className={cn(
+            "h-full w-full rounded-[9px] bg-card p-2.5 text-left transition-transform active:scale-[0.98] disabled:opacity-60",
+            !cardBorder && "border",
+          )}
+          style={cardStyle}
         >
-          {/* Default bg when no cosmetic */}
-          {!cardBorder && !cardBg && (
-            <div className="absolute inset-0 bg-gradient-to-br from-card to-card/50 rounded-2xl border-2 border-border group-hover:border-primary/50 transition-colors" />
-          )}
-          {/* Custom bg with default border when only bg applied */}
-          {!cardBorder && cardBg && (
-            <div className="absolute inset-0 rounded-2xl border-2 border-border group-hover:border-primary/50 transition-colors" />
-          )}
-
-          {/* Pending ad fundum overlay */}
-          {hasPendingAdFundum && (
-            <div className="absolute inset-0 z-10 rounded-2xl bg-red-950/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1 pointer-events-none">
-              <span className="text-3xl">🍺</span>
-              <span className="text-xs font-bold text-red-300 text-center px-2">
-                Owes Adje
-              </span>
-            </div>
-          )}
-
-          {/* Background Pattern */}
-          <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(180deg,white,transparent)]" />
-
-          <div className="relative flex flex-col items-center gap-4">
-            {/* Avatar */}
-            {player.avatar_url ? (
-              <div className="relative">
-                <div
-                  className="p-1 rounded-full"
-                  style={avatarRing ? { background: avatarRing } : undefined}
-                >
-                  <img
-                    src={player.avatar_url}
-                    alt={player.name}
-                    className="w-24 h-24 rounded-full object-cover shadow-lg"
-                    style={
-                      !avatarRing
-                        ? { boxShadow: "0 0 0 4px hsl(var(--primary) / 0.2)" }
-                        : undefined
-                    }
-                  />
-                </div>
-                {avatarBadge && (
-                  <span className="absolute -bottom-1 -right-1 text-xl leading-none drop-shadow-lg">
-                    {avatarBadge}
-                  </span>
-                )}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+          {isLeader ? (
+            <div className="flex items-center gap-2.5">
+              {avatar}
+              <div className="min-w-0 flex-1">
+                <span className="block text-[11px] font-bold text-muted-foreground">
+                  All-time #1
+                </span>
+                {nameBlock}
               </div>
-            ) : (
-              <div className="relative">
-                <div
-                  className="p-1 rounded-full"
-                  style={avatarRing ? { background: avatarRing } : undefined}
-                >
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/60 flex items-center justify-center text-5xl font-bold text-primary-foreground shadow-lg">
-                    {player.name.charAt(0).toUpperCase()}
-                  </div>
-                </div>
-                {avatarBadge && (
-                  <span className="absolute -bottom-1 -right-1 text-xl leading-none drop-shadow-lg">
-                    {avatarBadge}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Player Name */}
-            <div className="text-center space-y-1">
-              <h3 className="text-xl font-bold group-hover:text-primary transition-colors">
-                {player.name}
-              </h3>
-              <p className="text-xs font-semibold text-muted-foreground min-h-[1rem]">
-                {cardTitle ?? (isLoading ? "Logging..." : "")}
-              </p>
+              {score}
             </div>
-          </div>
-
-          <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors pointer-events-none rounded-2xl" />
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-1">
+                {score}
+                {avatar}
+              </div>
+              <div className="mt-2">{nameBlock}</div>
+            </>
+          )}
         </button>
 
-        {/* Info button — overlaid top-right corner */}
+        {/* Generous touch area, so a tap near the icon doesn't log a Mexico */}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowInfo(true);
-          }}
-          className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-background/70 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-background transition-all shadow"
+          onClick={() => setShowInfo(true)}
+          className={cn(
+            "absolute right-0 flex h-11 w-11 p-1.5 text-muted-foreground",
+            isLeader
+              ? "top-0 items-start justify-end"
+              : "bottom-0 items-end justify-end",
+          )}
           aria-label={`View ${player.name}'s profile`}
         >
-          <Info className="w-4 h-4" />
+          <Info className="h-4 w-4" />
         </button>
       </div>
 
