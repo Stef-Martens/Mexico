@@ -13,12 +13,15 @@ A mobile-first web app for tracking Mexico (2-1) dice game scores.
 
 ## Features
 
-- 🔐 Google OAuth authentication
-- 👥 Player management
-- 🎲 Quick Mexico event logging
-- 📊 Time-based leaderboards (Tonight, Week, Year, All Time)
-- 📱 Mobile-first responsive design
-- 🔒 Access control via app_members table
+- 🔐 **Google OAuth** sign-in with Supabase Auth and an invite/approval flow for new members (`app_members`)
+- 🎲 **Quick event logging**: one tap to log a "Mexico" for a player, with undo
+- 📊 **Leaderboards** for tonight, this week, this year and all time (Europe/Brussels time zone)
+- 🪙 **Coins, shop and cosmetics**: earn coins, open loot boxes and equip cosmetics on your profile
+- 🍺 **"Ad fundum" challenges** with photo uploads, likes, comments and a decline flow
+- 🏅 **Badges** and an **admin panel** to manage members, coins, badges and cosmetics
+- 📧 **Monthly recap e-mail**, sent automatically by a Vercel Cron job
+- 🔒 **Row Level Security** on every table, so only approved members can read or write
+- 📱 **Mobile-first UI** with bottom navigation and large touch targets
 
 ## Getting Started
 
@@ -150,7 +153,3 @@ This app can be deployed to Vercel, Netlify, or any platform supporting Next.js:
 2. Connect to your deployment platform
 3. Add environment variables
 4. Deploy
-
-## License
-
-MIT
